@@ -14,7 +14,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private let transferControlUUID = CBUUID(string: "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001")
 
     private let deviceName = "POS-URINE-AN"
-    private let ackWindow = 10_000
+    private let ackWindow = 40_000
 
     @Published var status = "Bluetooth is starting…"
     @Published var isConnected = false
@@ -35,7 +35,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
 
     private var expectedImageSize = 0
     private var receivedData = Data()
-    private var nextAck = 10_000
+    private var nextAck = 40_000
     private var waitingForCapture = false
     private var capturePolls = 0
     private var transferActive = false
