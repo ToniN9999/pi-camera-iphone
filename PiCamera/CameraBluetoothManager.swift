@@ -301,6 +301,32 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral,
                     didUpdateNotificationStateFor characteristic: CBCharacteristic,
                     error: Error?) {
-        if let error { finishWithError("Could not enable image notifications: \(error.localizedDescription)") }
+
+        if let error {
+            finishWithError("Could not enable image notifications: \(error.localizedDescription)")
+            return
+        }
+
+        guard characteristic.uuid == imageStreamUUID else { return }
+
+        guard characteristic.isNotifying else {
+            finishWithError("Image notifications were not enabled.")
+            return
+        }
+
+        guard let controlCharacteristic else {
+            finishWithError("Transfer control characteristic not found.")
+            return
+        }
+
+        status = "Starting image transfer..."
+
+        let startCommand = Data("START".utf8)
+
+        peripheral.writeValue(
+            startCommand,
+            for: controlCharacteristic,
+            type: .withResponse
+        )
     }
 }
