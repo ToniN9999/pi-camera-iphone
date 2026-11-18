@@ -310,7 +310,6 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
         guard characteristic.uuid == imageStreamUUID else { return }
 
         guard characteristic.isNotifying else {
-            finishWithError("Image notifications were not enabled.")
             return
         }
 
