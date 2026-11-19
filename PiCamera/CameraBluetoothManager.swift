@@ -96,6 +96,33 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         central.connect(camera.peripheral, options: nil)
     }
 
+    func returnToCameraList() {
+        central.stopScan()
+
+        if let peripheral {
+            central.cancelPeripheralConnection(peripheral)
+        }
+
+        self.peripheral = nil
+        commandCharacteristic = nil
+        infoCharacteristic = nil
+        streamCharacteristic = nil
+        controlCharacteristic = nil
+
+        isConnected = false
+        isConnecting = false
+        isScanning = false
+        isBusy = false
+        waitingForCapture = false
+        transferActive = false
+
+        discoveredCameras.removeAll()
+        selectedCameraName = nil
+
+        image = nil
+        status = "Ready. Find a camera to connect."
+    }
+
     func takePhoto() {
         guard let peripheral, let commandCharacteristic else { return }
         isBusy = true

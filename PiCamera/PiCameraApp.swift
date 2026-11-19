@@ -33,6 +33,15 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    if camera.isConnected || camera.isConnecting {
+                        Button {
+                           camera.returnToCameraList()
+                        } label: {
+                           Label("Back to Camera List", systemImage: "arrow.left")
+                                 .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
 
                 Button {
                     camera.connect()
