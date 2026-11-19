@@ -1,4 +1,5 @@
 
+import os
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,7 @@ IMAGE_DATA_UUID = "7f510005-1b15-4f0e-9b7b-8c8f8f8f0001"
 IMAGE_STREAM_UUID = "7f510006-1b15-4f0e-9b7b-8c8f8f8f0001"
 TRANSFER_CONTROL_UUID = "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001"
 
-DEVICE_NAME = "POS-URINE-AN"
+DEVICE_NAME = os.uname().nodename
 PROJECT_DIR = Path.home() / "camera_project"
 CAPTURE_DIR = PROJECT_DIR / "captures"
 JPEG_QUALITY = 85
