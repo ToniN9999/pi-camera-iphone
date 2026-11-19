@@ -21,7 +21,11 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private let imageStreamUUID = CBUUID(string: "7f510006-1b15-4f0e-9b7b-8c8f8f8f0001")
     private let transferControlUUID = CBUUID(string: "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001")
 
-    private let ackWindow = 40_000
+    // Use the smaller window only for the XIAO firmware.
+    // Keep the Raspberry Pi's existing 40 KB window unchanged.
+    private var ackWindow: Int {
+        selectedCameraName == "XIAO-CAMERA" ? 2_000 : 40_000
+    }
 
     @Published var status = "Bluetooth is starting…"
     @Published var isConnected = false
