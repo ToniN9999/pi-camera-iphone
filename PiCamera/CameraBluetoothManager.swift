@@ -4,6 +4,14 @@ import CoreBluetooth
 import Photos
 import UIKit
 
+struct DiscoveredCamera: Identifiable {
+    let peripheral: CBPeripheral
+    let name: String
+    let rssi: Int
+
+    var id: UUID { peripheral.identifier }
+}
+
 @MainActor
 final class CameraBluetoothManager: NSObject, ObservableObject {
     // These UUIDs match the working Raspberry Pi BLE server.
@@ -13,12 +21,14 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private let imageStreamUUID = CBUUID(string: "7f510006-1b15-4f0e-9b7b-8c8f8f8f0001")
     private let transferControlUUID = CBUUID(string: "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001")
 
-    private let deviceName = "POS-URINE-AN"
     private let ackWindow = 40_000
 
     @Published var status = "Bluetooth is starting…"
     @Published var isConnected = false
     @Published var isConnecting = false
+    @Published var isScanning = false
+    @Published var discoveredCameras: [DiscoveredCamera] = []
+    @Published var selectedCameraName: String?
     @Published var isBusy = false
     @Published var progress = 0.0
     @Published var progressLabel = ""
@@ -50,11 +60,40 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
             status = "Please turn on Bluetooth on the iPhone."
             return
         }
-        isConnecting = true
-        status = "Searching for POS-URINE-AN…"
+        guard !isScanning, !isConnecting, !isConnected else { return }
+
+        discoveredCameras.removeAll()
+        selectedCameraName = nil
+        isScanning = true
+        status = "Searching for Pi cameras…"
         central.scanForPeripherals(withServices: [serviceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
+    }
+
+    func stopScanning() {
+        guard isScanning else { return }
+        central.stopScan()
+        isScanning = false
+        status = discoveredCameras.isEmpty
+            ? "Scan stopped. No cameras found."
+            : "Select a camera from the list."
+    }
+
+    func connect(to camera: DiscoveredCamera) {
+        guard central.state == .poweredOn, !isConnecting, !isConnected else { return }
+        central.stopScan()
+        isScanning = false
+        peripheral = camera.peripheral
+        selectedCameraName = camera.name
+        commandCharacteristic = nil
+        infoCharacteristic = nil
+        streamCharacteristic = nil
+        controlCharacteristic = nil
+        peripheral?.delegate = self
+        isConnecting = true
+        status = "Connecting to \(camera.name)…"
+        central.connect(camera.peripheral, options: nil)
     }
 
     func takePhoto() {
@@ -171,7 +210,7 @@ extension CameraBluetoothManager: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
-            status = "Ready. Connect to your Raspberry Pi."
+            status = "Ready. Find a Pi camera to connect."
         case .poweredOff:
             status = "Bluetooth is switched off."
         case .unauthorized:
@@ -187,12 +226,24 @@ extension CameraBluetoothManager: CBCentralManagerDelegate {
                         didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
-        guard self.peripheral == nil else { return }
-        self.peripheral = peripheral
-        central.stopScan()
-        peripheral.delegate = self
-        status = "Found POS-URINE-AN. Connecting…"
-        central.connect(peripheral, options: nil)
+        guard isScanning else { return }
+        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let cleanedAdvertisedName = advertisedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name: String
+        if let cleanedAdvertisedName, !cleanedAdvertisedName.isEmpty {
+            name = cleanedAdvertisedName
+        } else {
+            name = peripheral.name ?? "Unnamed Pi camera"
+        }
+
+        let camera = DiscoveredCamera(peripheral: peripheral, name: name, rssi: RSSI.intValue)
+        if let index = discoveredCameras.firstIndex(where: { $0.id == peripheral.identifier }) {
+            discoveredCameras[index] = camera
+        } else {
+            discoveredCameras.append(camera)
+        }
+        discoveredCameras.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        status = "Found \(discoveredCameras.count) camera(s). Select one to connect."
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -202,14 +253,22 @@ extension CameraBluetoothManager: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         isConnecting = false
-        status = "Connection failed: \(error?.localizedDescription ?? "Unknown error")"
+        self.peripheral = nil
+        status = "Connection to \(selectedCameraName ?? "camera") failed: \(error?.localizedDescription ?? "Unknown error")"
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         isConnected = false
         isConnecting = false
+        isBusy = false
+        waitingForCapture = false
+        transferActive = false
         self.peripheral = nil
-        status = "Bluetooth disconnected."
+        commandCharacteristic = nil
+        infoCharacteristic = nil
+        streamCharacteristic = nil
+        controlCharacteristic = nil
+        status = "Bluetooth disconnected. Find a camera to reconnect."
     }
 }
 
@@ -246,7 +305,7 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
         }
         isConnected = true
         isConnecting = false
-        status = "Connected to POS-URINE-AN."
+        status = "Connected to \(selectedCameraName ?? "Pi camera")."
     }
 
     func peripheral(_ peripheral: CBPeripheral,

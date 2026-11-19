@@ -37,12 +37,56 @@ struct ContentView: View {
                 Button {
                     camera.connect()
                 } label: {
-                    Label(camera.isConnected ? "Connected to POS-URINE-AN" : "Connect to POS-URINE-AN",
-                          systemImage: camera.isConnected ? "checkmark.circle.fill" : "dot.radiowaves.left.and.right")
+                    Label(camera.isScanning ? "Searching for cameras…" : "Find Cameras",
+                          systemImage: camera.isScanning ? "dot.radiowaves.left.and.right" : "magnifyingglass")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(camera.isConnected || camera.isConnecting)
+                .disabled(camera.isConnected || camera.isConnecting || camera.isScanning)
+
+                if camera.isScanning {
+                    HStack {
+                        ProgressView()
+                        Text("Scanning for cameras…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Stop") { camera.stopScanning() }
+                            .font(.caption)
+                    }
+                }
+
+                if !camera.discoveredCameras.isEmpty && !camera.isConnected {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Available Cameras")
+                            .font(.headline)
+                        ForEach(camera.discoveredCameras) { device in
+                            Button {
+                                camera.connect(to: device)
+                            } label: {
+                                HStack {
+                                    Image(systemName: "camera.fill")
+                                        .foregroundStyle(.blue)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(device.name)
+                                            .font(.body.weight(.medium))
+                                        Text("Signal: \(device.rssi) dBm")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.vertical, 6)
+                            Divider()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 Button {
                     camera.takePhoto()
