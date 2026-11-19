@@ -1,0 +1,6 @@
+[Unit]
+Description=Pi Camera Bluetooth Advertising Watchdog
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pi-camera-watchdog.sh

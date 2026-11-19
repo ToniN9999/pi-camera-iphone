@@ -1,0 +1,19 @@
+[Unit]
+Description=Pi Camera BLE Server
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/camera_project
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/pi/camera_project/.venv/bin/python -u /home/pi/camera_project/ble_server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Pi Camera Bluetooth Advertising Every Minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=pi-camera-watchdog.service
+
+[Install]
+WantedBy=timers.target
