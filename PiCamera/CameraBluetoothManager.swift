@@ -227,6 +227,19 @@ extension CameraBluetoothManager: CBCentralManagerDelegate {
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
         guard isScanning else { return }
+        print("========== BLE DEVICE FOUND ==========")
+        print("Peripheral ID: \(peripheral.identifier.uuidString)")
+        print("Peripheral name: \(peripheral.name ?? "nil")")
+        print("Advertised name: \(advertisementData[CBAdvertisementDataLocalNameKey] ?? "nil")")
+        print("RSSI: \(RSSI)")
+
+        if let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] {
+            print("Advertised services: \(services)")
+        } else {
+            print("Advertised services: none")
+        }
+
+        print("======================================")
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         let cleanedAdvertisedName = advertisedName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let name: String
