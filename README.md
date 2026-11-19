@@ -1,148 +1,101 @@
-# Pi Camera – iPhone App
+# Pi Camera iPhone
 
-A native SwiftUI/Core Bluetooth iPhone application for controlling a Raspberry Pi BLE camera server.
+Native SwiftUI/Core Bluetooth iPhone app and Raspberry Pi BLE camera
+server.
 
-The project contains both the iPhone application and the Raspberry Pi camera server.
+The system supports multiple Raspberry Pi 5 cameras. Each Pi advertises
+its own hostname over Bluetooth, and the iPhone app discovers compatible
+cameras and lets the user choose which one to connect to.
 
-## Project structure
+## Repository structure
 
-```text
-pi-camera-iphone/
-│
-├── PiCamera/
-│   ├── PiCameraApp.swift
-│   └── CameraBluetoothManager.swift
-│
-├── RaspberryPi/
-│   ├── ble_server.py
-│   ├── pi-camera-ble.service
-│   ├── pi-camera-watchdog.sh
-│   ├── pi-camera-watchdog.service
-│   └── pi-camera-watchdog.timer
-│
-└── README.md
+-   `PiCamera/` --- native iOS application source.
+-   `RaspberryPi/ble_server.py` --- Raspberry Pi BLE camera server.
+-   `RaspberryPi/pi-camera-ble.service` --- systemd service for starting
+    the camera server.
+-   `RaspberryPi/pi-camera-watchdog.sh` --- checks that Bluetooth
+    advertising is active and restarts the BLE service if advertising is
+    missing.
+-   `RaspberryPi/pi-camera-watchdog.service` and
+    `RaspberryPi/pi-camera-watchdog.timer` --- systemd units that run
+    the watchdog once per minute.
+-   `RaspberryPi/requirements.txt` --- Python dependencies for the
+    Raspberry Pi server.
+-   `RaspberryPi/INSTALL.md` --- Raspberry Pi installation instructions.
+-   `.github/workflows/` --- GitHub Actions workflow for building the
+    iOS app.
+
+## Multiple-camera operation
+
+Each Raspberry Pi uses its own Linux hostname as its Bluetooth device
+name. The server obtains this automatically using:
+
+``` python
+DEVICE_NAME = os.uname().nodename
 ```
 
-## Hardware
+For example, a Pi with hostname `POS-URINE-AN` advertises as
+`POS-URINE-AN`; another Pi with hostname `WORKSHOP-CAMERA` advertises as
+`WORKSHOP-CAMERA`.
 
-- Raspberry Pi 5
-- Raspberry Pi Camera Module 3
-- iPhone 17 or compatible iPhone with Bluetooth LE
+The iPhone app scans for the camera service UUID and displays discovered
+compatible devices by their Bluetooth names. It is not tied to a
+particular Pi hostname or Bluetooth device name. Select the required
+camera in the app before connecting.
 
-## iPhone application
-
-Native SwiftUI/Core Bluetooth client.
-
-### Current implementation
-
-- Scans for devices advertising the camera BLE service UUID.
-- Displays available cameras using their advertised device names.
-- Allows the user to select which camera to connect to.
-- Sends `CAPTURE` to characteristic `0002`.
-- Polls capture status until `CAPTURED`.
-- Reads the JPEG byte count from characteristic `0003`.
-- Enables notifications on characteristic `0006`.
-- Sends `START` and acknowledges image transfers using characteristic `0007`.
-- Uses a 40,000-byte acknowledgement window.
-- Displays the received JPEG and allows saving it to Photos.
-
-The application uses Bluetooth LE directly. It does not require Wi-Fi, a web page, Cloudflare or an internet connection at runtime.
-
-## Raspberry Pi server
-
-The Raspberry Pi runs `ble_server.py`, which controls the camera and provides the custom BLE GATT service.
-
-### Camera service
-
-`pi-camera-ble.service`
-
-- Starts the Python BLE camera server.
-- Runs automatically at boot.
-- Restarts automatically if the server fails.
-
-### Bluetooth advertising watchdog
-
-The watchdog monitors Bluetooth advertising every minute.
-
-Files:
-
-- `pi-camera-watchdog.sh`
-- `pi-camera-watchdog.service`
-- `pi-camera-watchdog.timer`
-
-If Bluetooth advertising stops, the watchdog restarts the camera BLE service.
-
-### Useful commands
-
-Check camera service:
-
-```bash
-sudo systemctl status pi-camera-ble.service --no-pager
-```
-
-Restart camera service:
-
-```bash
-sudo systemctl restart pi-camera-ble.service
-```
-
-View camera service logs:
-
-```bash
-sudo journalctl -u pi-camera-ble.service -n 25 --no-pager
-```
-
-Check watchdog timer:
-
-```bash
-systemctl status pi-camera-watchdog.timer --no-pager
-```
-
-View watchdog logs:
-
-```bash
-sudo journalctl -u pi-camera-watchdog.service -n 25 --no-pager
-```
+Give each Pi a unique hostname so that cameras can be distinguished in
+the selection list.
 
 ## Bluetooth protocol
 
-The iPhone communicates with the Raspberry Pi using a custom BLE GATT service.
+The Raspberry Pi server and iPhone app use the following custom BLE
+service and characteristics:
 
-### UUIDs
+  Purpose             UUID
+  ------------------- ----------------------------------------
+  Service             `7f510001-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Command             `7f510002-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Image information   `7f510003-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Image request       `7f510004-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Image data          `7f510005-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Image stream        `7f510006-1b15-4f0e-9b7b-8c8f8f8f0001`
+  Transfer control    `7f510007-1b15-4f0e-9b7b-8c8f8f8f0001`
 
-| Characteristic | UUID |
-|---|---|
-| Service | `7f510001-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Command | `7f510002-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Image information | `7f510003-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Image request | `7f510004-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Image data | `7f510005-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Image stream | `7f510006-1b15-4f0e-9b7b-8c8f8f8f0001` |
-| Transfer control | `7f510007-1b15-4f0e-9b7b-8c8f8f8f0001` |
+The app sends a capture command, waits for the capture status, obtains
+the JPEG size, receives the image stream and acknowledges transfer
+windows. It displays the received image and can save it to Photos.
 
-### Current transfer configuration
+## Raspberry Pi installation
 
-- Chunk size: 180 bytes
-- Notification payload: 500 bytes
-- Acknowledgement window: 40,000 bytes
-- ACK timeout: 15 seconds
+Follow [`RaspberryPi/INSTALL.md`](RaspberryPi/INSTALL.md) for the
+complete installation procedure, including dependencies, service setup
+and watchdog configuration.
 
-## Building the iPhone application
+Install the server on each Raspberry Pi that should act as a camera. Set
+a unique hostname on each Pi before installation. The server derives its
+Bluetooth name from that hostname; no per-device name edit in
+`ble_server.py` should be necessary.
 
-GitHub Actions builds an unsigned IPA using a macOS runner.
+The Raspberry Pi camera server runs locally. The iPhone communicates
+with it over Bluetooth Low Energy; Wi-Fi or an internet connection is
+not required for camera capture and image transfer.
 
-The IPA must then be signed and installed on the iPhone using Sideloadly and an Apple ID.
+## Building the iPhone app
 
-With a free Apple Personal Team provisioning profile, signing typically needs renewing every 7 days.
+GitHub Actions builds an unsigned iOS IPA on a macOS runner. Download
+the IPA artifact from a successful Actions run, then sign and install it
+on the iPhone using a suitable sideloading tool and Apple signing
+credentials.
 
-## Important
+With a free Apple Developer Personal Team, provisioning typically needs
+to be renewed every seven days.
 
-The Raspberry Pi server and iPhone application are maintained in the same repository.
+## Development notes
 
-The existing Raspberry Pi setup is a working reference implementation. Changes to the iPhone application should preserve compatibility with its BLE protocol.
-
-## Future development
-
-A second camera platform is planned using the Seeed Studio XIAO ESP32S3 Sense.
-
-The intention is to retain compatibility with the existing iPhone application and BLE communication protocol wherever possible.
+-   Keep the BLE UUIDs and transfer protocol settings in the iOS app and
+    Raspberry Pi server in sync.
+-   Test server changes on a Raspberry Pi before deploying them to other
+    cameras.
+-   The watchdog checks Bluetooth advertising once per minute and
+    restarts the camera BLE service if no advertising instance is
+    active.
