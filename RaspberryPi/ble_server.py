@@ -26,6 +26,8 @@ TRANSFER_CONTROL_UUID = "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001"
 DEVICE_NAME = os.uname().nodename
 PROJECT_DIR = Path.home() / "camera_project"
 CAPTURE_DIR = PROJECT_DIR / "captures"
+JPEG_WIDTH = 2304
+JPEG_HEIGHT = 1296
 JPEG_QUALITY = 85
 CHUNK_SIZE = 180
 NOTIFY_PAYLOAD_SIZE = 244  # Fits one 251-byte LL PDU: 4-byte L2CAP + 3-byte ATT + 244-byte value
@@ -135,6 +137,8 @@ class CameraService(Service):
                 "rpicam-still",
                 "-n", "-t", "1000",
                 "-q", str(JPEG_QUALITY),
+                "--width", str(JPEG_WIDTH),
+                "--height", str(JPEG_HEIGHT),
                 "-o", str(filepath),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -325,6 +329,7 @@ async def main():
 
     print("----------------------------------")
     print("Pi Camera BLE server is running")
+    print("JPEG resolution:", f"{JPEG_WIDTH}x{JPEG_HEIGHT}")
     print("JPEG quality:", JPEG_QUALITY)
     print("Image chunk maximum:", CHUNK_SIZE)
     print("Notification payload:", NOTIFY_PAYLOAD_SIZE)
