@@ -88,7 +88,8 @@
 // Valid: positive whole number of milliseconds. Current value: 15000.
 #define ACK_TIMEOUT_MS 15000
 
-// Maximum allowed duration for one image transfer, in milliseconds.
-// Valid: positive whole number of milliseconds. Must be long enough to
-// include all image data and acknowledgement waits. Current value: 30000.
+// No-progress timeout, in milliseconds.
+// Valid: positive whole number of milliseconds. The firmware aborts if
+// no successful BLE notification is sent for this long. Current: 30000.
+// Keep this comfortably longer than ACK_TIMEOUT_MS.
 #define TRANSFER_TIMEOUT_MS 30000
