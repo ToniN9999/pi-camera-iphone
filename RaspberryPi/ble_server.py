@@ -1,6 +1,7 @@
 
 import os
 import asyncio
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -128,6 +129,7 @@ class CameraService(Service):
             filepath = CAPTURE_DIR / filename
 
             print("Taking photograph:", filepath)
+            capture_started = time.monotonic()
 
             process = await asyncio.create_subprocess_exec(
                 "rpicam-still",
@@ -145,9 +147,11 @@ class CameraService(Service):
             if not filepath.exists() or filepath.stat().st_size == 0:
                 raise RuntimeError("Camera produced an empty image.")
 
+            capture_elapsed = time.monotonic() - capture_started
             print(
                 f"Photograph saved: {filepath} "
-                f"({filepath.stat().st_size / 1024:.1f} KB)"
+                f"({filepath.stat().st_size / 1024:.1f} KB) "
+                f"in {capture_elapsed:.2f} seconds"
             )
             self.last_command = b"CAPTURED"
 
@@ -237,14 +241,18 @@ class CameraService(Service):
 
             image_data = filepath.read_bytes()
             total = len(image_data)
+            transfer_started = time.monotonic()
             print(f"Starting notification transfer: {total} bytes")
             offset = 0
+            window_number = 0
 
             while offset < total:
+                window_number += 1
                 batch_end = min(offset + TRANSFER_WINDOW_SIZE, total)
                 self.expected_ack_offset = batch_end
                 self.ack_offset = -1
                 self.ack_event.clear()
+                window_started = time.monotonic()
 
                 while offset < batch_end:
                     chunk = image_data[offset:offset + NOTIFY_PAYLOAD_SIZE]
@@ -253,16 +261,33 @@ class CameraService(Service):
                     # Yield to BlueZ so queued notifications can be delivered.
                     await asyncio.sleep(0.002)
 
+                send_elapsed = time.monotonic() - window_started
+                print(
+                    f"Window {window_number}: sent {batch_end - (window_number - 1) * TRANSFER_WINDOW_SIZE} "
+                    f"bytes; send loop {send_elapsed:.2f}s"
+                )
+
                 if offset < total:
+                    ack_started = time.monotonic()
                     await asyncio.wait_for(
                         self.ack_event.wait(), timeout=TRANSFER_ACK_TIMEOUT
+                    )
+                    ack_elapsed = time.monotonic() - ack_started
+                    print(
+                        f"Window {window_number}: ACK received at byte {self.ack_offset} "
+                        f"after {ack_elapsed:.2f}s"
                     )
                     if self.ack_offset != offset:
                         raise RuntimeError(
                             f"Transfer acknowledgement mismatch at byte {offset}."
                         )
 
-            print(f"Notification transfer complete: {total} bytes")
+            transfer_elapsed = time.monotonic() - transfer_started
+            print(
+                f"Notification transfer complete: {total} bytes "
+                f"in {transfer_elapsed:.2f}s "
+                f"({total / max(transfer_elapsed, 0.001) / 1024:.1f} KB/s)"
+            )
             self.last_command = b"TRANSFERRED"
 
         except asyncio.TimeoutError:
