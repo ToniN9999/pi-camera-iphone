@@ -243,6 +243,20 @@ The Pi BLE window and notification payload must remain aligned with the
 matching values in the iPhone app; change them only as a coordinated,
 tested change.
 
+### After changing camera_config.py
+
+The Pi reads this file when the BLE server starts. After saving changes,
+restart the service; a full Pi reboot is not normally required:
+
+```bash
+sudo systemctl restart pi-camera-ble.service
+sudo journalctl -u pi-camera-ble.service -n 30 --no-pager
+```
+
+Check the startup log to confirm the camera name, image dimensions,
+JPEG quality and BLE settings are the values you intended. If the service
+fails to start, check the error shown by the journal before taking a photo.
+
 ## Raspberry Pi BLE transfer settings
 
 The current experimental `RaspberryPi/ble_server.py` uses:
@@ -255,7 +269,8 @@ The current experimental `RaspberryPi/ble_server.py` uses:
 The 244-byte notification value plus the 3-byte ATT notification header and 4-byte L2CAP header totals 251 bytes, matching the negotiated link-layer data length in the tested setup. The iPhone app uses the matching 80,032-byte acknowledgement window for Raspberry Pi cameras. Do not change one side without changing the other. The 80,032-byte window is an experiment; the previous 40,016-byte setting is preserved in the preceding Git commit as the known-good baseline. XIAO cameras use separate firmware settings and a 2,000-byte acknowledgement window.
 
 To deploy an updated common server from the cloned repository, replace
-only `ble_server.py`. Leave the Pi's local `camera_config.py` untouched:
+only `ble_server.py`. Leave the Pi's local `camera_config.py` untouched.
+Then compile-check and restart the service:
 
 ```bash
 cp ~/pi-camera-iphone/RaspberryPi/ble_server.py ~/camera_project/ble_server.py
