@@ -52,11 +52,27 @@ The repository is private, so GitHub authentication will be required.
 mkdir -p ~/camera_project/captures
 ```
 
-Copy the camera server:
+Copy the common camera server and the example configuration:
 
 ```bash
 cp ~/pi-camera-iphone/RaspberryPi/ble_server.py ~/camera_project/
+cp ~/pi-camera-iphone/RaspberryPi/camera_config.example.py ~/camera_project/camera_config.py
 ```
+
+Edit the local configuration for this physical Pi:
+
+```bash
+nano ~/camera_project/camera_config.py
+```
+
+Set `CAMERA_NAME` to a unique, short name for this camera. For the
+existing Pi, the example value is `POS-URINE-AN`. Give every additional
+Pi a different name. Do not use the `XIAO-` prefix; the iPhone app
+reserves it for XIAO cameras.
+
+The configuration file lives in `/home/pi/camera_project`, separate
+from the common server code. Do not overwrite this local file when
+deploying later server updates.
 
 ## 5. Create the Python virtual environment
 
@@ -205,9 +221,27 @@ Run a manual watchdog check:
 sudo systemctl start pi-camera-watchdog.service
 ```
 
-## Raspberry Pi image capture settings
+## Raspberry Pi configuration
 
-The current `RaspberryPi/ble_server.py` captures Pi images at **2304 × 1296** pixels with JPEG quality **85**. This reduces the default full-resolution image dimensions before JPEG encoding. File size varies with image content and lighting. Change `JPEG_WIDTH`, `JPEG_HEIGHT` or `JPEG_QUALITY` near the top of `ble_server.py` to adjust the capture.
+Each Pi has its own `/home/pi/camera_project/camera_config.py`.
+Configure the following values there:
+
+- `CAMERA_NAME`: unique Bluetooth name displayed by the iPhone app.
+- `CAPTURE_WIDTH` and `CAPTURE_HEIGHT`: image dimensions (default **2304 × 1296**).
+- `JPEG_QUALITY`: JPEG quality (default **85**; higher numbers mean less compression).
+- `CAPTURE_TIMEOUT_MS`: camera capture timeout passed to `rpicam-still`.
+- `CHUNK_SIZE`, `NOTIFY_PAYLOAD_SIZE`, `TRANSFER_WINDOW_SIZE` and `TRANSFER_ACK_TIMEOUT`: BLE transfer constants.
+
+The repository's `camera_config.example.py` is a template. Copy it to
+`camera_config.py` once on each Pi, then keep that local file when
+updating `ble_server.py`. The common server code is the same on every
+Pi; per-device differences belong in `camera_config.py`.
+
+Keep Pi camera names short and do not begin them with `XIAO-`. That
+prefix is used by the iPhone app to select the XIAO transfer settings.
+The Pi BLE window and notification payload must remain aligned with the
+matching values in the iPhone app; change them only as a coordinated,
+tested change.
 
 ## Raspberry Pi BLE transfer settings
 
@@ -220,7 +254,8 @@ The current experimental `RaspberryPi/ble_server.py` uses:
 
 The 244-byte notification value plus the 3-byte ATT notification header and 4-byte L2CAP header totals 251 bytes, matching the negotiated link-layer data length in the tested setup. The iPhone app uses the matching 80,032-byte acknowledgement window for Raspberry Pi cameras. Do not change one side without changing the other. The 80,032-byte window is an experiment; the previous 40,016-byte setting is preserved in the preceding Git commit as the known-good baseline. XIAO cameras use separate firmware settings and a 2,000-byte acknowledgement window.
 
-To deploy an updated server from the cloned repository, copy it into the active project directory and restart the service:
+To deploy an updated common server from the cloned repository, replace
+only `ble_server.py`. Leave the Pi's local `camera_config.py` untouched:
 
 ```bash
 cp ~/pi-camera-iphone/RaspberryPi/ble_server.py ~/camera_project/ble_server.py
@@ -229,7 +264,9 @@ sudo systemctl restart pi-camera-ble.service
 sudo journalctl -u pi-camera-ble.service -n 30 --no-pager
 ```
 
-The server startup log should report `JPEG resolution: 2304x1296`, `JPEG quality: 85`, `Notification payload: 244` and `Notification window: 80032`.
+The startup log should report the configured camera name and capture
+settings, followed by `Notification payload: 244` and
+`Notification window: 80032`.
 
 ## Useful BLE transfer diagnostics
 
