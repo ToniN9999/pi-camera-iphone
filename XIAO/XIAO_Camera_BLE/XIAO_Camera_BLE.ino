@@ -212,6 +212,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("Starting XIAO Camera BLE Server");
+  Serial.printf("ESP32 Arduino core: %s\\n", ESP_ARDUINO_VERSION_STR);
+  Serial.printf("NimBLE-Arduino: %s\\n", NimBLEDevice::getVersion());
   Serial.println("Initialising OV3660 camera...");
 
   if (!initialiseCamera()) {
