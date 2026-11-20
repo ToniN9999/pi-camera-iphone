@@ -19,20 +19,27 @@ This guide documents the tested XIAO ESP32S3 Sense + OV3660 BLE camera used with
 4. Select board **XIAO_ESP32S3** and the correct serial port.
 5. In **Tools → PSRAM**, select **OPI PSRAM**. This setting is essential; without it the camera may fail to initialise or allocate frame buffers.
 6. Install **NimBLE-Arduino** by h2zero.
-7. Open `XIAO_Camera_BLE.ino`, compile and upload.
+7. Open `XIAO_Camera_BLE.ino`, compile and upload. Keep `config.h` in the same sketch folder; Arduino needs both files.
 
 ## Firmware configuration
 
-The checked-in firmware is configured for the OV3660 sensor and this BLE identity:
+Device-specific settings are kept in **`config.h`**, separate from the main firmware. To give each physical XIAO a unique Bluetooth name, edit only this file:
 
-- Advertised name: `XIAO-CAMERA`
+```cpp
+#define CAMERA_NAME "XIAO-CAMERA-01"
+```
+
+For another unit, use a different name, such as `XIAO-CAMERA-02`. Keep the `XIAO-` prefix so the iPhone app recognises it as a XIAO and selects the correct acknowledgement window. Do not edit the main `XIAO_Camera_BLE.ino` sketch just to change a device name.
+
+The same file also contains the transfer and camera settings:
+
 - BLE service and characteristic UUIDs: identical to the Raspberry Pi and iPhone app
 - Camera frame size: QVGA (320 × 240)
-- JPEG capture
-- Notification chunk size: 500 bytes
-- Acknowledgement window: 2,000 bytes
-- ACK timeout: 15 seconds
-- Transfer timeout: 30 seconds
+- JPEG capture quality: configured by `CAMERA_JPEG_QUALITY`
+- Notification chunk size: configured by `CHUNK_SIZE` (default 500 bytes)
+- Acknowledgement window: configured by `ACK_WINDOW` (default 2,000 bytes)
+- ACK timeout: configured by `ACK_TIMEOUT_MS` (default 15 seconds)
+- Transfer timeout: configured by `TRANSFER_TIMEOUT_MS` (default 30 seconds)
 
 The firmware flushes one buffered camera frame before taking the requested photograph. This avoids returning the previous image when successive captures are requested.
 
@@ -41,9 +48,9 @@ The firmware flushes one buffered camera frame before taking the requested photo
 The iPhone app selects its acknowledgement window based on the connected camera name:
 
 - Raspberry Pi: 40,000 bytes
-- XIAO (`XIAO-CAMERA`): 2,000 bytes
+- Any XIAO name beginning with `XIAO-`: 2,000 bytes
 
-Do not change the advertised XIAO name without also updating the camera-specific selection in `PiCamera/CameraBluetoothManager.swift`.
+The app recognises the prefix automatically, so adding another uniquely named XIAO does not require another app code change.
 
 ## Serial monitor checks
 
@@ -53,7 +60,7 @@ Set the Serial Monitor to **115200 baud**. On startup, the expected messages inc
 - `Sensor PID: 0x3660`
 - `OV3660 ready.`
 - `BLE advertising started`
-- `Advertising as XIAO-CAMERA`
+- `Advertising as XIAO-CAMERA-01` (or the name configured in `config.h`)
 
 During a capture, the sketch reports the JPEG size and dimensions. During transfer it reports acknowledgement progress and transfer completion.
 
