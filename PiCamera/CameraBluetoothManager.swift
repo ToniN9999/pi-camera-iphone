@@ -61,6 +61,8 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private var acknowledgementCount = 0
     private var acknowledgementWriteStartedAt: TimeInterval = 0
     private var acknowledgementWriteTimeTotal: TimeInterval = 0
+    private var lastAcknowledgedByteCount = 0
+    private var transferDiagnosticEvents: [String] = []
 
     override init() {
         super.init()
@@ -181,7 +183,10 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         acknowledgementCount = 0
         acknowledgementWriteStartedAt = 0
         acknowledgementWriteTimeTotal = 0
+        lastAcknowledgedByteCount = 0
+        transferDiagnosticEvents.removeAll(keepingCapacity: true)
         transferStartedAt = ProcessInfo.processInfo.systemUptime
+        recordTransferEvent("Transfer started; expected=\(expectedImageSize) bytes; ACK window=\(ackWindow); camera=\(selectedCameraName ?? "unknown")")
         lastProgressUpdate = transferStartedAt
         transferActive = true
         progress = 0
@@ -191,6 +196,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 180) { [weak self] in
             guard let self, self.transferActive else { return }
+            self.recordTransferEvent("180-second transfer watchdog fired")
             self.finishWithError("Image transfer timed out. Please try again.")
         }
     }
@@ -204,7 +210,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
             withUnsafeBytes(of: &value) { ack.append(contentsOf: $0) }
             nextAck += ackWindow
             acknowledgementCount += 1
+            lastAcknowledgedByteCount = count
             acknowledgementWriteStartedAt = ProcessInfo.processInfo.systemUptime
+            recordTransferEvent("ACK #\(acknowledgementCount) queued at byte \(count); next threshold=\(nextAck)")
             peripheral.writeValue(ack, for: controlCharacteristic, type: .withResponse)
         }
     }
@@ -223,11 +231,14 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         image = decoded
         status = "Photograph received successfully."
         if let peripheral, let streamCharacteristic {
+            recordTransferEvent("Disabling notifications after successful completion")
             peripheral.setNotifyValue(false, for: streamCharacteristic)
         }
     }
 
     private func finishWithError(_ message: String) {
+        recordTransferEvent("ERROR: \(message); received=\(receivedData.count)/\(expectedImageSize); notifications=\(notificationCount); ACKs queued=\(acknowledgementCount); last ACK byte=\(lastAcknowledgedByteCount); transferActive=\(transferActive)")
+        diagnostics = (transferDiagnosticEvents + ["Final error: \(message)", "Received: \(receivedData.count) / \(expectedImageSize) bytes", "Notifications: \(notificationCount)", "ACK writes queued: \(acknowledgementCount)", "Last ACK byte: \(lastAcknowledgedByteCount)"]).joined(separator: "\n")
         waitingForCapture = false
         transferActive = false
         isBusy = false
@@ -235,8 +246,19 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         alertMessage = message
         showAlert = true
         if let peripheral, let streamCharacteristic {
+            recordTransferEvent("Disabling notifications because transfer failed")
             peripheral.setNotifyValue(false, for: streamCharacteristic)
         }
+    }
+
+    private func recordTransferEvent(_ message: String) {
+        let elapsed = transferStartedAt > 0 ? ProcessInfo.processInfo.systemUptime - transferStartedAt : 0
+        let line = String(format: "[+%.2fs] %@", elapsed, message)
+        transferDiagnosticEvents.append(line)
+        if transferDiagnosticEvents.count > 80 {
+            transferDiagnosticEvents.removeFirst(transferDiagnosticEvents.count - 80)
+        }
+        print("BLE DIAGNOSTIC: \(line)")
     }
 
     func copyDiagnostics() {
@@ -375,11 +397,17 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral,
                     didWriteValueFor characteristic: CBCharacteristic,
                     error: Error?) {
-        if let error { finishWithError("Bluetooth write failed: \(error.localizedDescription)"); return }
+        if let error {
+            recordTransferEvent("Write callback failed for \(characteristic.uuid): \(error.localizedDescription)")
+            finishWithError("Bluetooth write failed: \(error.localizedDescription)")
+            return
+        }
         if characteristic.uuid == commandUUID && waitingForCapture {
             pollCaptureStatus()
         } else if characteristic.uuid == transferControlUUID && acknowledgementWriteStartedAt > 0 {
-            acknowledgementWriteTimeTotal += ProcessInfo.processInfo.systemUptime - acknowledgementWriteStartedAt
+            let callbackTime = ProcessInfo.processInfo.systemUptime - acknowledgementWriteStartedAt
+            acknowledgementWriteTimeTotal += callbackTime
+            recordTransferEvent(String(format: "ACK write callback succeeded; duration=%.3fs", callbackTime))
             acknowledgementWriteStartedAt = 0
         }
     }
@@ -387,7 +415,11 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral,
                     didUpdateValueFor characteristic: CBCharacteristic,
                     error: Error?) {
-        if let error { finishWithError("Bluetooth read failed: \(error.localizedDescription)"); return }
+        if let error {
+            recordTransferEvent("Read callback failed for \(characteristic.uuid): \(error.localizedDescription)")
+            finishWithError("Bluetooth read failed: \(error.localizedDescription)")
+            return
+        }
         guard let value = characteristic.value else { return }
 
         if characteristic.uuid == commandUUID && waitingForCapture {
@@ -414,6 +446,9 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
             receivedData.append(value)
             notificationCount += 1
             let count = receivedData.count
+            if notificationCount == 1 || count >= nextAck || count >= expectedImageSize {
+                recordTransferEvent("Notification #\(notificationCount); payload=\(value.count); received=\(count)/\(expectedImageSize); next ACK threshold=\(nextAck)")
+            }
             let now = ProcessInfo.processInfo.systemUptime
 
             // Keep receiving every notification, but limit SwiftUI progress updates to 10 Hz.
@@ -453,11 +488,13 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
                     error: Error?) {
 
         if let error {
+            recordTransferEvent("Notification-state callback error for \(characteristic.uuid): \(error.localizedDescription)")
             finishWithError("Could not enable image notifications: \(error.localizedDescription)")
             return
         }
 
         guard characteristic.uuid == imageStreamUUID else { return }
+        recordTransferEvent("Image notifications state changed; isNotifying=\(characteristic.isNotifying)")
 
         guard characteristic.isNotifying else {
             return
