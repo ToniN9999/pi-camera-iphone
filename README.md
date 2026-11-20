@@ -3,7 +3,7 @@
 Native SwiftUI/Core Bluetooth iPhone app and Raspberry Pi BLE camera
 server.
 
-The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises its hostname over Bluetooth; the XIAO advertises as `XIAO-CAMERA`. The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
+The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises its hostname over Bluetooth. Each XIAO advertises a configurable unique name (for example, `XIAO-CAMERA-01`). The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
 
 ## Repository structure
 
@@ -21,6 +21,7 @@ The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense
     Raspberry Pi server.
 -   `RaspberryPi/INSTALL.md` --- Raspberry Pi installation instructions.
 -   `XIAO/XIAO_Camera_BLE.ino` --- tested XIAO ESP32S3 Sense BLE camera firmware.
+-   `XIAO/config.h` --- per-device XIAO name and camera/transfer settings; edit this instead of the main sketch.
 -   `XIAO/INSTALL.md` --- XIAO Arduino IDE setup and firmware configuration.
 -   `.github/workflows/` --- GitHub Actions workflow for building the
     iOS app.
@@ -38,7 +39,7 @@ For example, a Pi with hostname `POS-URINE-AN` advertises as
 `POS-URINE-AN`; another Pi with hostname `WORKSHOP-CAMERA` advertises as
 `WORKSHOP-CAMERA`.
 
-The iPhone app scans for the camera service UUID and displays discovered compatible devices by their Bluetooth names. Select the required camera in the app before connecting. The XIAO is identified by the fixed name `XIAO-CAMERA`.
+The iPhone app scans for the camera service UUID and displays discovered compatible devices by their Bluetooth names. Select the required camera in the app before connecting. XIAO devices should use unique names beginning with `XIAO-`, configured in `XIAO/config.h` (for example, `XIAO-CAMERA-01` and `XIAO-CAMERA-02`).
 
 Give each Pi a unique hostname so that cameras can be distinguished in
 the selection list.
@@ -58,7 +59,7 @@ service and characteristics:
   Image stream        `7f510006-1b15-4f0e-9b7b-8c8f8f8f0001`
   Transfer control    `7f510007-1b15-4f0e-9b7b-8c8f8f8f0001`
 
-The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 40,000 bytes for Raspberry Pi and 2,000 bytes for `XIAO-CAMERA`.
+The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 40,000 bytes for Raspberry Pi and 2,000 bytes for any camera whose name begins with `XIAO-`.
 
 ## Raspberry Pi installation
 
