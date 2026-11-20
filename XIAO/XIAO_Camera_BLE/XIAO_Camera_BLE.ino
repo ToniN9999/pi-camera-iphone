@@ -170,45 +170,11 @@ void configureCharacteristics(BLEService& service) {
     }
   });
 
-  commandCharacteristic.onRead([](BLECharacteristic& characteristic,
-                                  const BLEConnInfo& connInfo) {
-    String currentValue = characteristic.getStringValue();
-
-    Serial.println("COMMAND READ requested");
-    Serial.printf("COMMAND length: %u\n",
-                  (unsigned int)currentValue.length());
-
-    Serial.print("COMMAND bytes: ");
-    for (unsigned int i = 0; i < currentValue.length(); i++) {
-      Serial.printf("%02X ", (uint8_t)currentValue[i]);
-    }
-    Serial.println();
-  });
-
   imageInfoCharacteristic = service.createCharacteristic(
     IMAGE_INFO_UUID, BLEProperty::Read, BLEPermission::ReadOpen);
   uint8_t initialSize[4] = {0, 0, 0, 0};
   imageInfoCharacteristic.setValue(initialSize, sizeof(initialSize));
   
-  // IMAGE_INFO diagnostic
-  imageInfoCharacteristic.onRead([](BLECharacteristic& characteristic,
-                                    const BLEConnInfo& connInfo) {
-    const uint8_t* value = characteristic.getValue();
-
-    Serial.println("IMAGE_INFO READ requested");
-    Serial.print("IMAGE_INFO bytes: ");
-
-    if (value != nullptr) {
-      for (int i = 0; i < 4; i++) {
-        Serial.printf("%02X ", value[i]);
-      }
-    } else {
-      Serial.print("NULL");
-    }
-
-    Serial.println();
-  });
-
   // Retained for protocol compatibility with the existing iPhone app.
   service.createCharacteristic(
     IMAGE_REQUEST_UUID,
@@ -226,17 +192,6 @@ void configureCharacteristics(BLEService& service) {
                                             const BLEConnInfo& connInfo) {
     size_t length = 0;
     const uint8_t* data = characteristic.getValue(&length);
-
-    Serial.printf("TRANSFER CONTROL WRITE received: %u bytes\n",
-                  (unsigned int)length);
-
-    if (data != nullptr && length > 0) {
-      Serial.print("Data: ");
-      for (size_t i = 0; i < length; i++) {
-        Serial.printf("%02X ", data[i]);
-      }
-      Serial.println();
-    }
 
     if (data == nullptr || length == 0) return;
 
