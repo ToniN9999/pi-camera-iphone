@@ -207,14 +207,14 @@ sudo systemctl start pi-camera-watchdog.service
 
 ## Raspberry Pi BLE transfer settings
 
-The current `RaspberryPi/ble_server.py` uses:
+The current experimental `RaspberryPi/ble_server.py` uses:
 
 - Notification payload: **244 bytes**.
-- Transfer acknowledgement window: **40,016 bytes** (164 × 244-byte notifications).
+- Transfer acknowledgement window: **80,032 bytes** (328 × 244-byte notifications).
 - ATT MTU observed in the tested Pi/iPhone connection: **517**.
 - Link-layer data length observed in that connection: **251 bytes**.
 
-The 244-byte notification value plus the 3-byte ATT notification header and 4-byte L2CAP header totals 251 bytes, matching the negotiated link-layer data length in the tested setup. The iPhone app uses the matching 40,016-byte acknowledgement window for Raspberry Pi cameras. Do not change one side without changing the other. XIAO cameras use separate firmware settings and a 2,000-byte acknowledgement window.
+The 244-byte notification value plus the 3-byte ATT notification header and 4-byte L2CAP header totals 251 bytes, matching the negotiated link-layer data length in the tested setup. The iPhone app uses the matching 80,032-byte acknowledgement window for Raspberry Pi cameras. Do not change one side without changing the other. The 80,032-byte window is an experiment; the previous 40,016-byte setting is preserved in the preceding Git commit as the known-good baseline. XIAO cameras use separate firmware settings and a 2,000-byte acknowledgement window.
 
 To deploy an updated server from the cloned repository, copy it into the active project directory and restart the service:
 
