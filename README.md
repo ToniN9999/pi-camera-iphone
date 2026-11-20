@@ -66,7 +66,7 @@ The app sends a capture command, waits for the capture status, obtains the JPEG 
 The current experimental Raspberry Pi server uses these transfer settings:
 
 - Notification value payload: **244 bytes**.
-- Transfer/acknowledgement window: **80,032 bytes** (164 notifications).
+- Transfer/acknowledgement window: **80,032 bytes** (328 notifications).
 - ATT MTU observed in the tested connection: **517**.
 - Bluetooth LE link-layer data length observed in the tested connection: **251 bytes**.
 
