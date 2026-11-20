@@ -73,7 +73,7 @@ The current experimental Raspberry Pi server uses these transfer settings:
 
 The 244-byte notification value is sized to fit one 251-byte link-layer PDU after the 4-byte L2CAP and 3-byte ATT headers. In tests with the Raspberry Pi 5 and iPhone, this improved image-transfer throughput compared with the previous 500-byte notification value. Actual throughput varies with the BLE connection and radio conditions; these figures are configuration details, not a guaranteed rate.
 
-Keep the Pi's `NOTIFY_PAYLOAD_SIZE` and `TRANSFER_WINDOW_SIZE` in `RaspberryPi/ble_server.py` consistent with the iPhone's Raspberry Pi acknowledgement window in `PiCamera/CameraBluetoothManager.swift`. The iPhone must acknowledge the same 80,032-byte boundaries used by the Pi. This doubled window is experimental; the previous 40,016-byte setting remains available in the preceding Git commit as the known-good baseline.
+Keep the Pi's `NOTIFY_PAYLOAD_SIZE` and `TRANSFER_WINDOW_SIZE` in its local `camera_config.py` consistent with the iPhone's Raspberry Pi acknowledgement window in `PiCamera/CameraBluetoothManager.swift`. The iPhone must acknowledge the same 80,032-byte boundaries used by the Pi. This doubled window is experimental; the previous 40,016-byte setting remains available in the preceding Git commit as the known-good baseline.
 
 ## Raspberry Pi installation
 
