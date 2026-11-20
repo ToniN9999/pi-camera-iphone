@@ -251,10 +251,25 @@ void setup() {
   service->start();
 
   NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
+
+  // Keep the 128-bit service UUID in the main 31-byte advertisement.
+  // Put the configurable device name in the scan response so longer
+  // names do not overflow the legacy BLE advertisement packet.
   NimBLEAdvertisementData advertisementData;
-  advertisementData.setName(CAMERA_NAME);
   advertisementData.addServiceUUID(SERVICE_UUID);
-  advertising->setAdvertisementData(advertisementData);
+
+  NimBLEAdvertisementData scanResponseData;
+  scanResponseData.setName(CAMERA_NAME);
+
+  advertising->enableScanResponse(true);
+
+  if (!advertising->setAdvertisementData(advertisementData)) {
+    Serial.println("ERROR: Failed to set BLE advertisement data.");
+  }
+  if (!advertising->setScanResponseData(scanResponseData)) {
+    Serial.println("ERROR: Failed to set BLE scan response data.");
+  }
+
   advertising->start();
 
   Serial.println("BLE advertising started");
