@@ -1,68 +1,72 @@
-# XIAO test plan: ESP32 Arduino core 4.0.0
+# XIAO ESP32 Arduino core 4.0.0 compatibility test
 
-This is an isolated compatibility test on the `esp32-core-4.0.0` branch.
-The working `main` branch and the known-good ESP32 Arduino core 3.3.13
-configuration remain unchanged.
+This document records the completed migration and validation of the XIAO
+ESP32S3 Sense camera firmware from NimBLE-Arduino to the BLE API built into
+ESP32 Arduino core 4.0.0.
 
-## Why the first test keeps the current BLE library
+## Why the BLE implementation changed
 
-The sketch uses the separate h2zero `NimBLE-Arduino` library through
-`#include <NimBLEDevice.h>`; it does not use Espressif's former
-`BLEDevice.h` API. Core 4.0.0 rewrites Espressif's built-in BLE API as
-`BLE.h`, but its documentation still describes NimBLE-Arduino as an
-option for users who want the more customisable NimBLE interface.
+The original NimBLE-Arduino 2.5.2 build failed against ESP32 Arduino core
+4.0.0 in `ble_hs_periodic_sync.c` because of an incompatible structure
+member. Rather than changing the working Raspberry Pi or iPhone protocol,
+the XIAO sketch was migrated to the built-in ESP32 Core 4 BLE API:
 
-Therefore, first test the existing sketch with the external library before
-rewriting the GATT server. The sketch prints both the selected Arduino core
-version and NimBLE-Arduino version at startup to make the test unambiguous.
+- Include: `#include <BLE.h>`
+- No separate NimBLE-Arduino library is required.
+- The existing service and characteristic UUIDs are retained.
+- The existing command, image information, notification stream and ACK
+  protocol are retained.
+- Command characteristic values are written with explicit byte lengths.
+  This is important because the iPhone compares the status strings exactly;
+  including a trailing null byte caused the capture-complete status to be
+  missed.
 
 ## Test environment
 
-- Board: Seeed XIAO ESP32S3
+- Board: Seeed Studio XIAO ESP32S3 Sense
 - ESP32 Arduino core: **4.0.0**
-- BLE library: **NimBLE-Arduino 2.5.2**
-- Camera: OV3660
+- BLE implementation: built-in ESP32 Core 4 BLE API
+- Camera: OV3660 (sensor PID `0x3660`)
 - PSRAM: OPI PSRAM
-- Sketch: `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino`
-- Configuration: `XIAO/XIAO_Camera_BLE/config.h`
+- Camera frame size in the committed configuration: UXGA (1600 × 1200)
+- JPEG quality: 12
+- Notification chunk: 500 bytes
+- Acknowledgement window: 2,000 bytes
 
-## Windows / Arduino IDE procedure
+## Validation results
 
-1. In PowerShell, change to the local repository:
-   `cd "$HOME\\Documents\\PiCameraIPhone"`
-2. Fetch and check out the test branch:
-   `git fetch origin`
-   `git checkout esp32-core-4.0.0`
-   `git pull --ff-only origin esp32-core-4.0.0`
-3. In Arduino IDE Boards Manager, install/select **esp32 by Espressif Systems 4.0.0**. Keep 3.3.13 installed so it remains available for rollback.
-4. In Library Manager, install/update **NimBLE-Arduino 2.5.2** by h2zero.
-5. Open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino`.
-6. Select board `XIAO_ESP32S3`, the correct port, and **Tools → PSRAM → OPI PSRAM**.
-7. Click Verify (compile) first. Do not upload until compilation succeeds.
+The firmware compiled and uploaded successfully. The camera initialised,
+the XIAO advertised its configured Bluetooth name, and the iPhone app
+connected and received photographs.
 
-## If compilation succeeds
+Five consecutive UXGA captures completed successfully. The recorded JPEG
+sizes were:
 
-1. Click Upload to flash the test firmware.
-2. Open Serial Monitor at 115200 baud.
-3. Confirm the first lines identify:
-   - ESP32 Arduino core: `4.0.0`
-   - NimBLE-Arduino: `2.5.2`
-4. Confirm the OV3660 initialises and BLE advertises as `XIAO-CAMERA-01`.
-5. Connect using the iPhone app and take a photo.
-6. Check the iPhone diagnostics and XIAO Serial Monitor for complete transfer and both ACKs.
+| Capture | JPEG size | Transfer time |
+|---:|---:|---:|
+| 1 | 148,528 bytes | 6.85 s |
+| 2 | 104,986 bytes | 4.85 s |
+| 3 | 138,900 bytes | 6.41 s |
+| 4 | 115,830 bytes | 5.16 s |
+| 5 | 111,687 bytes | 5.23 s |
 
-A successful compile alone is not a successful compatibility test; camera
-initialisation, advertising, iPhone connection and full image transfer must
-also pass.
+All five transfers completed with acknowledgement progress and no reported
+ACK timeout. Average image size was approximately 124 KB and average
+transfer time was approximately 5.70 seconds. JPEG size and transfer time
+vary with the scene.
 
-## If compilation fails
+The iPhone app was also tested switching between the Raspberry Pi and XIAO
+cameras twice, successfully capturing images from both cameras.
 
-Do not upload. Copy the complete first compiler error and the surrounding
-output. Keep the test branch and the known-good 3.3.13 setup unchanged while
-the incompatibility is investigated.
+## Current known-good settings
 
-## Roll back
+See `XIAO/XIAO_Camera_BLE/config.h` for the committed settings. The current
+UXGA and JPEG quality 12 combination is retained as the working baseline.
+Further image quality and transfer-speed optimisation is deferred.
 
-In Arduino IDE, select ESP32 Arduino core **3.3.13** again and reopen the
-working sketch from the `main` branch. No change to the Pi server or iPhone
-app is required for this core-version test.
+## Setup
+
+Follow [`INSTALL.md`](INSTALL.md) for the current Arduino IDE installation
+and firmware upload instructions. Those instructions target ESP32 Arduino
+core 4.0.0 and the built-in BLE API; do not install NimBLE-Arduino for this
+sketch.
