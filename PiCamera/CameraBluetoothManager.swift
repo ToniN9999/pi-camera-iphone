@@ -430,7 +430,7 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
                 let averageAckWrite = acknowledgementCount > 0
                     ? acknowledgementWriteTimeTotal / Double(acknowledgementCount) : 0
                 diagnostics = String(format:
-                    "Camera: %@\\nImage: %d bytes\\nNotifications: %d\\nReceive time: %.2f s\\nReceive rate: %.1f KB/s\\nACK writes: %d\\nAverage ACK write callback: %.3f s",
+                    "Camera: %@\nImage: %d bytes\nNotifications: %d\nReceive time: %.2f s\nReceive rate: %.1f KB/s\nACK writes: %d\nAverage ACK write callback: %.3f s",
                     selectedCameraName ?? "Unknown",
                     count,
                     notificationCount,
