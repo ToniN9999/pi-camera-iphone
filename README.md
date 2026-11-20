@@ -3,7 +3,7 @@
 Native SwiftUI/Core Bluetooth iPhone app and Raspberry Pi BLE camera
 server.
 
-The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises the unique name set in its local `camera_config.py`; each XIAO advertises the unique name set in `XIAO/config.h`. The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
+The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises the unique name set in its local `camera_config.py`; each XIAO advertises the unique name set in `XIAO/XIAO_Camera_BLE/config.h`. The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
 
 ## Repository structure
 
