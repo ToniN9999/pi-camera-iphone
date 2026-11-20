@@ -41,6 +41,15 @@ Each XIAO gets a unique name in `XIAO/config.h` (for example,
 camera service UUID and displays discovered compatible devices by their
 Bluetooth names. Select the required camera in the app before connecting.
 
+### Applying configuration changes
+
+- **Raspberry Pi:** edit the local `/home/pi/camera_project/camera_config.py`,
+  then run `sudo systemctl restart pi-camera-ble.service`. A full Pi reboot
+  is not normally needed.
+- **XIAO:** edit `XIAO/config.h`, then open `XIAO_Camera_BLE.ino` in Arduino
+  IDE and compile/upload the firmware again. The XIAO must be reflashed;
+  restarting the Pi does not apply XIAO settings.
+
 ## Bluetooth protocol
 
 The Raspberry Pi server and iPhone app use the following custom BLE
