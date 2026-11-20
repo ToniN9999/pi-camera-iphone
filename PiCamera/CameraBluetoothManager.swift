@@ -23,9 +23,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
 
     // All XIAO devices use the smaller acknowledgement window.
     // Their configurable names share the "XIAO-" prefix.
-    // Keep the Raspberry Pi's existing 40 KB window unchanged.
+    // Raspberry Pi window is experimentally doubled; XIAO remains unchanged.
     private var ackWindow: Int {
-        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 40_016
+        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 80_032
     }
 
     @Published var status = "Bluetooth is starting…"
@@ -51,7 +51,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
 
     private var expectedImageSize = 0
     private var receivedData = Data()
-    private var nextAck = 40_000
+    private var nextAck = 80_032
     private var waitingForCapture = false
     private var capturePolls = 0
     private var transferActive = false
