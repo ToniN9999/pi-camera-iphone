@@ -21,8 +21,8 @@ The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense
 -   `RaspberryPi/requirements.txt` --- Python dependencies for the
     Raspberry Pi server.
 -   `RaspberryPi/INSTALL.md` --- Raspberry Pi installation instructions.
--   `XIAO/XIAO_Camera_BLE.ino` --- tested XIAO ESP32S3 Sense BLE camera firmware.
--   `XIAO/config.h` --- per-device XIAO name and camera/transfer settings; edit this instead of the main sketch.
+-   `XIAO/XIAO_Camera_BLE/` --- Arduino sketch folder containing `XIAO_Camera_BLE.ino` and `config.h`.
+-   `XIAO/XIAO_Camera_BLE/config.h` --- per-device XIAO name and camera/transfer settings; edit this instead of the main sketch.
 -   `XIAO/INSTALL.md` --- XIAO Arduino IDE setup and firmware configuration.
 -   `.github/workflows/` --- GitHub Actions workflow for building the
     iOS app.
@@ -36,7 +36,7 @@ or `WORKSHOP-CAMERA`). Do not edit `ble_server.py` for individual Pi
 installations. Keep the Pi name distinct from the reserved `XIAO-`
 prefix because the iPhone app uses that prefix to identify XIAO devices.
 
-Each XIAO gets a unique name in `XIAO/config.h` (for example,
+Each XIAO gets a unique name in `XIAO/XIAO_Camera_BLE/config.h` (for example,
 `XIAO-CAMERA-01` and `XIAO-CAMERA-02`). The iPhone app scans for the
 camera service UUID and displays discovered compatible devices by their
 Bluetooth names. Select the required camera in the app before connecting.
@@ -46,7 +46,7 @@ Bluetooth names. Select the required camera in the app before connecting.
 - **Raspberry Pi:** edit the local `/home/pi/camera_project/camera_config.py`,
   then run `sudo systemctl restart pi-camera-ble.service`. A full Pi reboot
   is not normally needed.
-- **XIAO:** edit `XIAO/config.h`, then open `XIAO_Camera_BLE.ino` in Arduino
+- **XIAO:** edit `XIAO/XIAO_Camera_BLE/config.h`, then open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino` in Arduino
   IDE and compile/upload the firmware again. The XIAO must be reflashed;
   restarting the Pi does not apply XIAO settings.
 
