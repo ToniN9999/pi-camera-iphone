@@ -33,8 +33,7 @@ For another unit, use a different name, such as `XIAO-CAMERA-02`. Keep the `XIAO
 
 The same file also contains the transfer and camera settings:
 
-- BLE service and characteristic UUIDs: identical to the Raspberry Pi and iPhone app
-- Camera frame size: QVGA (320 × 240)
+- Camera frame size: configured by `CAMERA_FRAME_SIZE` (default `FRAMESIZE_QVGA`, 320 × 240)
 - JPEG capture quality: configured by `CAMERA_JPEG_QUALITY`
 - Notification chunk size: configured by `CHUNK_SIZE` (default 500 bytes)
 - Acknowledgement window: configured by `ACK_WINDOW` (default 2,000 bytes)
@@ -47,7 +46,7 @@ The firmware flushes one buffered camera frame before taking the requested photo
 
 The iPhone app selects its acknowledgement window based on the connected camera name:
 
-- Raspberry Pi: 40,000 bytes
+- Raspberry Pi: 80,032 bytes
 - Any XIAO name beginning with `XIAO-`: 2,000 bytes
 
 The app recognises the prefix automatically, so adding another uniquely named XIAO does not require another app code change. The firmware advertises the BLE service UUID in the main advertising packet and puts the configurable device name in the scan response. This keeps the payload within the legacy BLE advertising size limit while allowing the iPhone to discover the service.
