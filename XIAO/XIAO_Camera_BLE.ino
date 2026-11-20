@@ -259,7 +259,7 @@ void setup() {
 
   Serial.println("BLE advertising started");
   Serial.println("BLE server started");
-  Serial.printf("Advertising as %s\\n", CAMERA_NAME);
+  Serial.printf("Advertising as %s\n", CAMERA_NAME);
 }
 
 void loop() {
