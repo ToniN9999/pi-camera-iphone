@@ -50,7 +50,7 @@ The iPhone app selects its acknowledgement window based on the connected camera 
 - Raspberry Pi: 40,000 bytes
 - Any XIAO name beginning with `XIAO-`: 2,000 bytes
 
-The app recognises the prefix automatically, so adding another uniquely named XIAO does not require another app code change.
+The app recognises the prefix automatically, so adding another uniquely named XIAO does not require another app code change. The firmware advertises the BLE service UUID in the main advertising packet and puts the configurable device name in the scan response. This keeps the payload within the legacy BLE advertising size limit while allowing the iPhone to discover the service.
 
 ## Serial monitor checks
 
