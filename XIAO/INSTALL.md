@@ -19,7 +19,7 @@ This guide documents the tested XIAO ESP32S3 Sense + OV3660 BLE camera used with
 4. Select board **XIAO_ESP32S3** and the correct serial port.
 5. In **Tools → PSRAM**, select **OPI PSRAM**. This setting is essential; without it the camera may fail to initialise or allocate frame buffers.
 6. Install **NimBLE-Arduino** by h2zero.
-7. Open `XIAO_Camera_BLE.ino`, compile and upload. Keep `config.h` in the same sketch folder; Arduino needs both files.
+7. Open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino`, compile and upload. Keep `config.h` in that same `XIAO_Camera_BLE` folder; Arduino requires the folder and `.ino` file to have the same name.
 
 ## Firmware configuration
 
@@ -45,7 +45,7 @@ The same file also contains the transfer and camera settings:
 Every setting in `config.h` is compiled into the XIAO firmware. Saving
 the file alone does not change the running camera. After any change:
 
-1. Open `XIAO_Camera_BLE.ino` in Arduino IDE (keep `config.h` beside it).
+1. Open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino` in Arduino IDE (keep `config.h` beside it in the `XIAO_Camera_BLE` folder).
 2. Select board `XIAO_ESP32S3` and the correct USB port.
 3. Confirm **Tools → PSRAM → OPI PSRAM**.
 4. Click **Upload** and wait for the upload to complete.
