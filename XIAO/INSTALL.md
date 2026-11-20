@@ -40,6 +40,24 @@ The same file also contains the transfer and camera settings:
 - ACK timeout: configured by `ACK_TIMEOUT_MS` (default 15 seconds)
 - Transfer timeout: configured by `TRANSFER_TIMEOUT_MS` (default 30 seconds)
 
+### After changing config.h
+
+Every setting in `config.h` is compiled into the XIAO firmware. Saving
+the file alone does not change the running camera. After any change:
+
+1. Open `XIAO_Camera_BLE.ino` in Arduino IDE (keep `config.h` beside it).
+2. Select board `XIAO_ESP32S3` and the correct USB port.
+3. Confirm **Tools → PSRAM → OPI PSRAM**.
+4. Click **Upload** and wait for the upload to complete.
+5. Reopen the Serial Monitor at 115200 baud and check the startup messages
+   and advertised camera name.
+
+The XIAO must be connected over USB and reflashed. Restarting the
+Raspberry Pi service does not apply XIAO configuration changes. No
+iPhone app rebuild is needed for the normal camera name, frame-size or
+JPEG-quality changes. Do not change `ACK_WINDOW` or the BLE protocol
+settings independently of the matching iPhone app settings.
+
 The firmware flushes one buffered camera frame before taking the requested photograph. This avoids returning the previous image when successive captures are requested.
 
 ## iPhone app compatibility
