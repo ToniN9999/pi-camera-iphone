@@ -1,5 +1,6 @@
 #include <NimBLEDevice.h>
 #include "esp_camera.h"
+#include "config.h"
 
 // BLE UUIDs matching the Raspberry Pi and iPhone app
 #define SERVICE_UUID          "7f510001-1b15-4f0e-9b7b-8c8f8f8f0001"
@@ -27,13 +28,6 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
-
-// Transfer settings
-#define CHUNK_SIZE        500
-// Keep the notification window small so the iPhone can acknowledge often.
-#define ACK_WINDOW        2000
-#define ACK_TIMEOUT_MS    15000
-#define TRANSFER_TIMEOUT_MS 30000
 
 NimBLECharacteristic* commandCharacteristic = nullptr;
 NimBLECharacteristic* imageInfoCharacteristic = nullptr;
@@ -74,7 +68,7 @@ bool initialiseCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
   config.frame_size = FRAMESIZE_QVGA;
-  config.jpeg_quality = 12;
+  config.jpeg_quality = CAMERA_JPEG_QUALITY;
   config.fb_count = 1;
   config.fb_location = CAMERA_FB_IN_PSRAM;
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
@@ -226,7 +220,7 @@ void setup() {
     Serial.println("OV3660 ready.");
   }
 
-  NimBLEDevice::init("XIAO-CAMERA");
+  NimBLEDevice::init(CAMERA_NAME);
   NimBLEDevice::setMTU(517);
 
   NimBLEServer* server = NimBLEDevice::createServer();
@@ -258,14 +252,14 @@ void setup() {
 
   NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
   NimBLEAdvertisementData advertisementData;
-  advertisementData.setName("XIAO-CAMERA");
+  advertisementData.setName(CAMERA_NAME);
   advertisementData.addServiceUUID(SERVICE_UUID);
   advertising->setAdvertisementData(advertisementData);
   advertising->start();
 
   Serial.println("BLE advertising started");
   Serial.println("BLE server started");
-  Serial.println("Advertising as XIAO-CAMERA");
+  Serial.printf("Advertising as %s\\n", CAMERA_NAME);
 }
 
 void loop() {
