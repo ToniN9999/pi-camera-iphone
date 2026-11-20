@@ -56,7 +56,8 @@ CAPTURE_TIMEOUT_MS = 1000
 
 # Legacy read-characteristic chunk size (not used by the current
 # iPhone notification-stream transfer path).
-# Valid: positive whole number; keep at 180 unless using the legacy read path.
+# Valid: positive whole number. With the tested ATT MTU of 517, the read
+# response can carry up to 516 data bytes. Keep at 180 unless using this path.
 CHUNK_SIZE = 180
 
 # Notification value size in bytes.
