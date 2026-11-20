@@ -28,8 +28,8 @@ PROJECT_DIR = Path.home() / "camera_project"
 CAPTURE_DIR = PROJECT_DIR / "captures"
 JPEG_QUALITY = 85
 CHUNK_SIZE = 180
-NOTIFY_PAYLOAD_SIZE = 500  # Safe with the negotiated ATT MTU of 517
-TRANSFER_WINDOW_SIZE = 40000
+NOTIFY_PAYLOAD_SIZE = 244  # Fits one 251-byte LL PDU: 4-byte L2CAP + 3-byte ATT + 244-byte value
+TRANSFER_WINDOW_SIZE = 40016  # 164 notifications x 244 bytes; keeps ACK boundaries aligned
 TRANSFER_ACK_TIMEOUT = 15
 
 
