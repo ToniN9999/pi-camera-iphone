@@ -3,12 +3,13 @@
 Native SwiftUI/Core Bluetooth iPhone app and Raspberry Pi BLE camera
 server.
 
-The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises its hostname over Bluetooth. Each XIAO advertises a configurable unique name (for example, `XIAO-CAMERA-01`). The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
+The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises the unique name set in its local `camera_config.py`; each XIAO advertises the unique name set in `XIAO/config.h`. The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
 
 ## Repository structure
 
 -   `PiCamera/` --- native iOS application source.
--   `RaspberryPi/ble_server.py` --- Raspberry Pi BLE camera server.
+-   `RaspberryPi/ble_server.py` --- common Raspberry Pi BLE camera server.
+-   `RaspberryPi/camera_config.example.py` --- template for each Pi's local camera name, capture and transfer settings.
 -   `RaspberryPi/pi-camera-ble.service` --- systemd service for starting
     the camera server.
 -   `RaspberryPi/pi-camera-watchdog.sh` --- checks that Bluetooth
@@ -28,21 +29,17 @@ The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense
 
 ## Multiple-camera operation
 
-Each Raspberry Pi uses its own Linux hostname as its Bluetooth device
-name. The server obtains this automatically using:
+Each Raspberry Pi gets a local `camera_config.py`, copied from
+`RaspberryPi/camera_config.example.py`. Set `CAMERA_NAME` in that file to
+a unique, short name for that physical Pi (for example, `POS-URINE-AN`
+or `WORKSHOP-CAMERA`). Do not edit `ble_server.py` for individual Pi
+installations. Keep the Pi name distinct from the reserved `XIAO-`
+prefix because the iPhone app uses that prefix to identify XIAO devices.
 
-``` python
-DEVICE_NAME = os.uname().nodename
-```
-
-For example, a Pi with hostname `POS-URINE-AN` advertises as
-`POS-URINE-AN`; another Pi with hostname `WORKSHOP-CAMERA` advertises as
-`WORKSHOP-CAMERA`.
-
-The iPhone app scans for the camera service UUID and displays discovered compatible devices by their Bluetooth names. Select the required camera in the app before connecting. XIAO devices should use unique names beginning with `XIAO-`, configured in `XIAO/config.h` (for example, `XIAO-CAMERA-01` and `XIAO-CAMERA-02`).
-
-Give each Pi a unique hostname so that cameras can be distinguished in
-the selection list.
+Each XIAO gets a unique name in `XIAO/config.h` (for example,
+`XIAO-CAMERA-01` and `XIAO-CAMERA-02`). The iPhone app scans for the
+camera service UUID and displays discovered compatible devices by their
+Bluetooth names. Select the required camera in the app before connecting.
 
 ## Bluetooth protocol
 
@@ -63,7 +60,7 @@ The app sends a capture command, waits for the capture status, obtains the JPEG 
 
 ## Raspberry Pi image capture settings
 
-The Pi camera server captures images at **2304 × 1296** pixels with JPEG quality **85**. This is a deliberate reduction from the camera's default full-resolution output to reduce the amount of data sent over Bluetooth. Actual JPEG size depends on scene detail and lighting. These settings are configurable near the top of `RaspberryPi/ble_server.py`.
+The Pi camera server's default capture is **2304 × 1296** pixels at JPEG quality **85**. Actual JPEG size depends on scene detail and lighting. Each Pi's `camera_config.py` controls its camera name, capture dimensions, JPEG quality and transfer constants; the common server code stays the same across devices.
 
 ## Raspberry Pi BLE transfer settings
 
@@ -84,10 +81,11 @@ Follow [`RaspberryPi/INSTALL.md`](RaspberryPi/INSTALL.md) for the
 complete installation procedure, including dependencies, service setup
 and watchdog configuration.
 
-Install the server on each Raspberry Pi that should act as a camera. Set
-a unique hostname on each Pi before installation. The server derives its
-Bluetooth name from that hostname; no per-device name edit in
-`ble_server.py` should be necessary.
+Install the common server on each Raspberry Pi. Copy
+`RaspberryPi/camera_config.example.py` to
+`/home/pi/camera_project/camera_config.py` on each Pi, then change only
+`CAMERA_NAME` to give that unit a unique Bluetooth name. Keep each Pi's
+local config file when deploying later server updates.
 
 The Raspberry Pi camera server runs locally. The iPhone communicates
 with it over Bluetooth Low Energy; Wi-Fi or an internet connection is
