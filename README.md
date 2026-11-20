@@ -61,6 +61,10 @@ service and characteristics:
 
 The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 80,032 bytes for Raspberry Pi and 2,000 bytes for any camera whose name begins with `XIAO-`. The Raspberry Pi sends image notifications with a 244-byte value payload. With the tested 251-byte Bluetooth LE link-layer data length, each notification fits in one link-layer PDU (4-byte L2CAP header + 3-byte ATT notification header + 244-byte value). The Pi transfer window is 80,032 bytes (328 × 244-byte notifications), keeping acknowledgement boundaries aligned. XIAO firmware retains its own configurable notification chunk size and 2,000-byte acknowledgement window.
 
+## Raspberry Pi image capture settings
+
+The Pi camera server captures images at **2304 × 1296** pixels with JPEG quality **85**. This is a deliberate reduction from the camera's default full-resolution output to reduce the amount of data sent over Bluetooth. Actual JPEG size depends on scene detail and lighting. These settings are configurable near the top of `RaspberryPi/ble_server.py`.
+
 ## Raspberry Pi BLE transfer settings
 
 The current experimental Raspberry Pi server uses these transfer settings:
