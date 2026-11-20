@@ -25,7 +25,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     // Their configurable names share the "XIAO-" prefix.
     // Keep the Raspberry Pi's existing 40 KB window unchanged.
     private var ackWindow: Int {
-        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 40_000
+        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 160_000
     }
 
     @Published var status = "Bluetooth is starting…"
