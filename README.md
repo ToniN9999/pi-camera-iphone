@@ -59,20 +59,20 @@ service and characteristics:
   Image stream        `7f510006-1b15-4f0e-9b7b-8c8f8f8f0001`
   Transfer control    `7f510007-1b15-4f0e-9b7b-8c8f8f8f0001`
 
-The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 40,016 bytes for Raspberry Pi and 2,000 bytes for any camera whose name begins with `XIAO-`. The Raspberry Pi sends image notifications with a 244-byte value payload. With the tested 251-byte Bluetooth LE link-layer data length, each notification fits in one link-layer PDU (4-byte L2CAP header + 3-byte ATT notification header + 244-byte value). The Pi transfer window is 40,016 bytes (164 × 244-byte notifications), keeping acknowledgement boundaries aligned. XIAO firmware retains its own configurable notification chunk size and 2,000-byte acknowledgement window.
+The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 80,032 bytes for Raspberry Pi and 2,000 bytes for any camera whose name begins with `XIAO-`. The Raspberry Pi sends image notifications with a 244-byte value payload. With the tested 251-byte Bluetooth LE link-layer data length, each notification fits in one link-layer PDU (4-byte L2CAP header + 3-byte ATT notification header + 244-byte value). The Pi transfer window is 80,032 bytes (328 × 244-byte notifications), keeping acknowledgement boundaries aligned. XIAO firmware retains its own configurable notification chunk size and 2,000-byte acknowledgement window.
 
 ## Raspberry Pi BLE transfer settings
 
-The current Raspberry Pi server uses these transfer settings:
+The current experimental Raspberry Pi server uses these transfer settings:
 
 - Notification value payload: **244 bytes**.
-- Transfer/acknowledgement window: **40,016 bytes** (164 notifications).
+- Transfer/acknowledgement window: **80,032 bytes** (164 notifications).
 - ATT MTU observed in the tested connection: **517**.
 - Bluetooth LE link-layer data length observed in the tested connection: **251 bytes**.
 
 The 244-byte notification value is sized to fit one 251-byte link-layer PDU after the 4-byte L2CAP and 3-byte ATT headers. In tests with the Raspberry Pi 5 and iPhone, this improved image-transfer throughput compared with the previous 500-byte notification value. Actual throughput varies with the BLE connection and radio conditions; these figures are configuration details, not a guaranteed rate.
 
-Keep the Pi's `NOTIFY_PAYLOAD_SIZE` and `TRANSFER_WINDOW_SIZE` in `RaspberryPi/ble_server.py` consistent with the iPhone's Raspberry Pi acknowledgement window in `PiCamera/CameraBluetoothManager.swift`. The iPhone must acknowledge the same 40,016-byte boundaries used by the Pi.
+Keep the Pi's `NOTIFY_PAYLOAD_SIZE` and `TRANSFER_WINDOW_SIZE` in `RaspberryPi/ble_server.py` consistent with the iPhone's Raspberry Pi acknowledgement window in `PiCamera/CameraBluetoothManager.swift`. The iPhone must acknowledge the same 80,032-byte boundaries used by the Pi. This doubled window is experimental; the previous 40,016-byte setting remains available in the preceding Git commit as the known-good baseline.
 
 ## Raspberry Pi installation
 
