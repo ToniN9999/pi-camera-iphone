@@ -40,6 +40,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     @Published var image: UIImage?
     @Published var showAlert = false
     @Published var alertMessage = ""
+    @Published var diagnostics = "No image transfer recorded yet."
 
     private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
@@ -57,6 +58,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private var transferStartedAt: TimeInterval = 0
     private var notificationCount = 0
     private var lastProgressUpdate: TimeInterval = 0
+    private var acknowledgementCount = 0
+    private var acknowledgementWriteStartedAt: TimeInterval = 0
+    private var acknowledgementWriteTimeTotal: TimeInterval = 0
 
     override init() {
         super.init()
@@ -174,6 +178,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         receivedData.reserveCapacity(expectedImageSize)
         nextAck = ackWindow
         notificationCount = 0
+        acknowledgementCount = 0
+        acknowledgementWriteStartedAt = 0
+        acknowledgementWriteTimeTotal = 0
         transferStartedAt = ProcessInfo.processInfo.systemUptime
         lastProgressUpdate = transferStartedAt
         transferActive = true
@@ -196,6 +203,8 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
             var value = UInt32(count).bigEndian
             withUnsafeBytes(of: &value) { ack.append(contentsOf: $0) }
             nextAck += ackWindow
+            acknowledgementCount += 1
+            acknowledgementWriteStartedAt = ProcessInfo.processInfo.systemUptime
             peripheral.writeValue(ack, for: controlCharacteristic, type: .withResponse)
         }
     }
@@ -228,6 +237,10 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         if let peripheral, let streamCharacteristic {
             peripheral.setNotifyValue(false, for: streamCharacteristic)
         }
+    }
+
+    func copyDiagnostics() {
+        UIPasteboard.general.string = diagnostics
     }
 
     func saveToPhotos() {
@@ -365,6 +378,9 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
         if let error { finishWithError("Bluetooth write failed: \(error.localizedDescription)"); return }
         if characteristic.uuid == commandUUID && waitingForCapture {
             pollCaptureStatus()
+        } else if characteristic.uuid == transferControlUUID && acknowledgementWriteStartedAt > 0 {
+            acknowledgementWriteTimeTotal += ProcessInfo.processInfo.systemUptime - acknowledgementWriteStartedAt
+            acknowledgementWriteStartedAt = 0
         }
     }
 
@@ -411,8 +427,20 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
             if count == expectedImageSize {
                 let elapsed = max(now - transferStartedAt, 0.001)
                 let rate = Double(count) / elapsed / 1024
-                print(String(format: "BLE receive complete: %d bytes, %d notifications in %.2fs (%.1f KB/s)",
-                             count, notificationCount, elapsed, rate))
+                let averageAckWrite = acknowledgementCount > 0
+                    ? acknowledgementWriteTimeTotal / Double(acknowledgementCount) : 0
+                diagnostics = String(format:
+                    "Camera: %@\\nImage: %d bytes\\nNotifications: %d\\nReceive time: %.2f s\\nReceive rate: %.1f KB/s\\nACK writes: %d\\nAverage ACK write callback: %.3f s",
+                    selectedCameraName ?? "Unknown",
+                    count,
+                    notificationCount,
+                    elapsed,
+                    rate,
+                    acknowledgementCount,
+                    averageAckWrite)
+                print(String(format: "BLE receive complete: %d bytes, %d notifications in %.2fs (%.1f KB/s); %d ACK writes, average callback %.3fs",
+                             count, notificationCount, elapsed, rate,
+                             acknowledgementCount, averageAckWrite))
                 completeTransfer()
             } else if count > expectedImageSize {
                 finishWithError("Received more data than expected.")
