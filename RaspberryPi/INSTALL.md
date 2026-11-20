@@ -205,6 +205,10 @@ Run a manual watchdog check:
 sudo systemctl start pi-camera-watchdog.service
 ```
 
+## Raspberry Pi image capture settings
+
+The current `RaspberryPi/ble_server.py` captures Pi images at **2304 × 1296** pixels with JPEG quality **85**. This reduces the default full-resolution image dimensions before JPEG encoding. File size varies with image content and lighting. Change `JPEG_WIDTH`, `JPEG_HEIGHT` or `JPEG_QUALITY` near the top of `ble_server.py` to adjust the capture.
+
 ## Raspberry Pi BLE transfer settings
 
 The current experimental `RaspberryPi/ble_server.py` uses:
@@ -225,7 +229,7 @@ sudo systemctl restart pi-camera-ble.service
 sudo journalctl -u pi-camera-ble.service -n 30 --no-pager
 ```
 
-The server startup log should report `Notification payload: 244` and `Notification window: 40016`.
+The server startup log should report `JPEG resolution: 2304x1296`, `JPEG quality: 85`, `Notification payload: 244` and `Notification window: 80032`.
 
 ## Useful BLE transfer diagnostics
 
