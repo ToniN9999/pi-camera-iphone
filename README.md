@@ -124,15 +124,22 @@ Raspberry Pi and XIAO cameras and successfully capturing images from both.
 JPEG size and transfer time vary with the scene. Image compression and
 transfer tuning are intentionally left for later optimisation.
 
-## Building the iPhone app
+## Building and releasing the iPhone app
 
-GitHub Actions builds an unsigned iOS IPA on a macOS runner. Download
-the IPA artifact from a successful Actions run, then sign and install
-it on the iPhone using a suitable sideloading tool and Apple signing
-credentials.
+GitHub Actions builds an unsigned iOS IPA on a macOS runner whenever
+changes are pushed to `main`. The IPA is retained as a downloadable
+Actions artifact for seven days.
 
-With a free Apple Developer Personal Team, provisioning typically needs
-to be renewed every seven days.
+To create a permanent versioned download, push a version tag in the
+form `vX.Y.Z` (for example, `v1.0.0`). The workflow builds the app
+and publishes `PiCamera-unsigned.ipa` as an asset attached to the
+matching GitHub Release. Releases retain the IPA alongside the source
+code for that version.
+
+The IPA is **unsigned**. Signing and provisioning are required before
+installing it on an iPhone; use a suitable sideloading tool and Apple
+signing credentials. With a free Apple Developer Personal Team,
+provisioning typically needs to be renewed every seven days.
 
 ## Development notes
 
