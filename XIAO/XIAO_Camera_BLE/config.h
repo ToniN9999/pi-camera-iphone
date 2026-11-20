@@ -59,7 +59,7 @@
 //   FRAMESIZE_QXGA      = 2048x1536 (maximum OV3660 frame size)
 //
 // Do not select sizes above QXGA for this OV3660 camera.
-#define CAMERA_FRAME_SIZE FRAMESIZE_QVGA
+#define CAMERA_FRAME_SIZE FRAMESIZE_UXGA
 
 // JPEG quality for the ESP32 camera driver.
 // Valid: integer 0-63. LOWER numbers mean HIGHER image quality and

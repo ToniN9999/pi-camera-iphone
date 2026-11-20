@@ -1,4 +1,4 @@
-#include <NimBLEDevice.h>
+#include <BLE.h>
 #include "esp_camera.h"
 #include "config.h"
 
@@ -29,15 +29,22 @@
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
 
-NimBLECharacteristic* commandCharacteristic = nullptr;
-NimBLECharacteristic* imageInfoCharacteristic = nullptr;
-NimBLECharacteristic* imageStreamCharacteristic = nullptr;
-NimBLECharacteristic* transferControlCharacteristic = nullptr;
+// Core 4.0 BLE handles are lightweight shared handles, not pointers.
+BLEServer bleServer;
+BLECharacteristic commandCharacteristic;
+BLECharacteristic imageInfoCharacteristic;
+BLECharacteristic imageStreamCharacteristic;
+BLECharacteristic transferControlCharacteristic;
 
 camera_fb_t* capturedImage = nullptr;
 
 volatile bool transferActive = false;
 volatile bool waitingForAck = false;
+volatile bool captureRequested = false;
+volatile bool disconnectCleanupRequested = false;
+volatile bool transferStartRequested = false;
+volatile bool ackReceived = false;
+volatile uint32_t receivedAckOffset = 0;
 
 size_t transferOffset = 0;
 size_t lastAckOffset = 0;
@@ -132,86 +139,86 @@ bool capturePhoto() {
     (uint8_t)(imageSize >> 8),
     (uint8_t)imageSize
   };
-  imageInfoCharacteristic->setValue(sizeData, sizeof(sizeData));
+  imageInfoCharacteristic.setValue(sizeData, sizeof(sizeData));
   Serial.printf("IMAGE_INFO updated: %u bytes\n", imageSize);
   return true;
 }
 
-class CommandCallbacks : public NimBLECharacteristicCallbacks {
-  void onWrite(NimBLECharacteristic* characteristic,
-               NimBLEConnInfo& connInfo) override {
-    std::string value = characteristic->getValue();
+void setCommandValue(BLECharacteristic& characteristic,
+                     const char* value,
+                     size_t length) {
+  characteristic.setValue(
+      reinterpret_cast<const uint8_t*>(value), length);
+}
+
+void configureCharacteristics(BLEService& service) {
+  commandCharacteristic = service.createCharacteristic(
+    COMMAND_UUID,
+    BLEProperty::Read | BLEProperty::Write,
+    BLEPermission::ReadWriteOpen);
+  setCommandValue(commandCharacteristic, "READY", 5);
+    commandCharacteristic.onWrite([](BLECharacteristic& characteristic,
+                                    const BLEConnInfo& connInfo) {
+    String value = characteristic.getStringValue();
+
     Serial.print("Command received: ");
-    Serial.println(value.c_str());
+    Serial.println(value);
 
     if (value == "CAPTURE") {
-      characteristic->setValue("CAPTURING");
-      if (capturePhoto()) {
-        characteristic->setValue("CAPTURED");
-        Serial.println("Capture completed successfully.");
-      } else {
-        characteristic->setValue("ERROR");
-        Serial.println("Capture failed.");
-      }
+      setCommandValue(characteristic, "CAPTURING", 9);;
+      captureRequested = true;
     }
-  }
-};
+  });
 
-class TransferControlCallbacks : public NimBLECharacteristicCallbacks {
-  void onWrite(NimBLECharacteristic* characteristic,
-               NimBLEConnInfo& connInfo) override {
-    std::string value = characteristic->getValue();
+  imageInfoCharacteristic = service.createCharacteristic(
+    IMAGE_INFO_UUID, BLEProperty::Read, BLEPermission::ReadOpen);
+  uint8_t initialSize[4] = {0, 0, 0, 0};
+  imageInfoCharacteristic.setValue(initialSize, sizeof(initialSize));
+  
+  // Retained for protocol compatibility with the existing iPhone app.
+  service.createCharacteristic(
+    IMAGE_REQUEST_UUID,
+    BLEProperty::Read | BLEProperty::Write,
+    BLEPermission::ReadWriteOpen);
+  service.createCharacteristic(
+    IMAGE_DATA_UUID, BLEProperty::Read, BLEPermission::ReadOpen);
 
-    if (value == "START") {
-      if (capturedImage == nullptr) {
-        Serial.println("START rejected: no captured image.");
-        return;
-      }
-      transferOffset = 0;
-      lastAckOffset = 0;
-      waitingForAck = false;
-      transferActive = true;
-      lastTransferTime = millis();
-      Serial.println("Image transfer START received.");
-      Serial.printf("Sending %u bytes.\n", capturedImage->len);
+  imageStreamCharacteristic = service.createCharacteristic(
+    IMAGE_STREAM_UUID, BLEProperty::Notify, BLEPermission::None);
+
+  transferControlCharacteristic = service.createCharacteristic(
+    TRANSFER_CONTROL_UUID, BLEProperty::Write, BLEPermission::WriteOpen);
+  transferControlCharacteristic.onWrite([](BLECharacteristic& characteristic,
+                                            const BLEConnInfo& connInfo) {
+    size_t length = 0;
+    const uint8_t* data = characteristic.getValue(&length);
+
+    if (data == nullptr || length == 0) return;
+
+    if (length == 5 && data[0] == 'S' && data[1] == 'T' &&
+        data[2] == 'A' && data[3] == 'R' && data[4] == 'T') {
+      transferStartRequested = true;
       return;
     }
 
     // ACK: ASCII 'A' followed by a 4-byte big-endian received-byte count.
-    if (value.size() == 5 && value[0] == 'A') {
-      uint32_t ackOffset =
-          ((uint32_t)(uint8_t)value[1] << 24) |
-          ((uint32_t)(uint8_t)value[2] << 16) |
-          ((uint32_t)(uint8_t)value[3] << 8) |
-          ((uint32_t)(uint8_t)value[4]);
-
-      if (transferActive && waitingForAck &&
-          ackOffset > lastAckOffset && ackOffset <= transferOffset) {
-        lastAckOffset = ackOffset;
-        waitingForAck = false;
-        lastAckTime = millis();
-        Serial.printf("ACK received: %u bytes\n", ackOffset);
-      }
+    if (length == 5 && data[0] == 'A') {
+      receivedAckOffset =
+          ((uint32_t)data[1] << 24) |
+          ((uint32_t)data[2] << 16) |
+          ((uint32_t)data[3] << 8) |
+          ((uint32_t)data[4]);
+      ackReceived = true;
     }
-  }
-};
-
-class ServerCallbacks : public NimBLEServerCallbacks {
-  void onDisconnect(NimBLEServer* server,
-                    NimBLEConnInfo& connInfo,
-                    int reason) override {
-    Serial.print("iPhone disconnected. Reason: ");
-    Serial.println(reason);
-    releaseCapturedImage();
-    NimBLEDevice::startAdvertising();
-    Serial.println("Restarting BLE advertising");
-  }
-};
+  });
+}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("Starting XIAO Camera BLE Server");
+  Serial.printf("ESP32 Arduino core: %s\n", ESP_ARDUINO_VERSION_STR);
+  Serial.println("Using built-in ESP32 Core 4 BLE API");
   Serial.println("Initialising OV3660 camera...");
 
   if (!initialiseCamera()) {
@@ -220,57 +227,46 @@ void setup() {
     Serial.println("OV3660 ready.");
   }
 
-  NimBLEDevice::init(CAMERA_NAME);
-  NimBLEDevice::setMTU(517);
-
-  NimBLEServer* server = NimBLEDevice::createServer();
-  server->setCallbacks(new ServerCallbacks());
-  NimBLEService* service = server->createService(SERVICE_UUID);
-
-  commandCharacteristic = service->createCharacteristic(
-    COMMAND_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-  commandCharacteristic->setValue("READY");
-  commandCharacteristic->setCallbacks(new CommandCallbacks());
-
-  imageInfoCharacteristic = service->createCharacteristic(
-    IMAGE_INFO_UUID, NIMBLE_PROPERTY::READ);
-  uint8_t initialSize[4] = {0, 0, 0, 0};
-  imageInfoCharacteristic->setValue(initialSize, sizeof(initialSize));
-
-  // Retained for protocol compatibility.
-  service->createCharacteristic(
-    IMAGE_REQUEST_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
-  service->createCharacteristic(IMAGE_DATA_UUID, NIMBLE_PROPERTY::READ);
-
-  imageStreamCharacteristic = service->createCharacteristic(
-    IMAGE_STREAM_UUID, NIMBLE_PROPERTY::NOTIFY);
-  transferControlCharacteristic = service->createCharacteristic(
-    TRANSFER_CONTROL_UUID, NIMBLE_PROPERTY::WRITE);
-  transferControlCharacteristic->setCallbacks(new TransferControlCallbacks());
-
-  service->start();
-
-  NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
-
-  // Keep the 128-bit service UUID in the main 31-byte advertisement.
-  // Put the configurable device name in the scan response so longer
-  // names do not overflow the legacy BLE advertisement packet.
-  NimBLEAdvertisementData advertisementData;
-  advertisementData.addServiceUUID(SERVICE_UUID);
-
-  NimBLEAdvertisementData scanResponseData;
-  scanResponseData.setName(CAMERA_NAME);
-
-  advertising->enableScanResponse(true);
-
-  if (!advertising->setAdvertisementData(advertisementData)) {
-    Serial.println("ERROR: Failed to set BLE advertisement data.");
-  }
-  if (!advertising->setScanResponseData(scanResponseData)) {
-    Serial.println("ERROR: Failed to set BLE scan response data.");
+  BTStatus bleStatus = BLE.begin(CAMERA_NAME);
+  if (!bleStatus) {
+    Serial.printf("BLE initialisation FAILED: %s\n", bleStatus.toString());
+    return;
   }
 
-  advertising->start();
+  BTStatus mtuStatus = BLE.setMTU(517);
+  if (!mtuStatus) {
+    Serial.printf("BLE MTU request failed: %s\n", mtuStatus.toString());
+  }
+
+  bleServer = BLE.createServer();
+  bleServer.advertiseOnDisconnect(true);
+  bleServer.onDisconnect([](BLEServer& server,
+                            const BLEConnInfo& connInfo,
+                            uint8_t reason) {
+    Serial.printf("iPhone disconnected. Reason: 0x%02X\n", reason);
+    // Release the camera frame later from loop(), not on the BLE host task.
+    disconnectCleanupRequested = true;
+  });
+
+  BLEService service = bleServer.createService(SERVICE_UUID);
+  configureCharacteristics(service);
+
+  BTStatus serverStatus = bleServer.start();
+  if (!serverStatus) {
+    Serial.printf("BLE GATT server start FAILED: %s\n", serverStatus.toString());
+    return;
+  }
+
+  BLEAdvertising advertising = BLE.getAdvertising();
+  advertising.setScanResponse(true);
+  advertising.setName(CAMERA_NAME);
+  advertising.addServiceUUID(SERVICE_UUID);
+
+  BTStatus advertisingStatus = advertising.start();
+  if (!advertisingStatus) {
+    Serial.printf("BLE advertising FAILED: %s\n", advertisingStatus.toString());
+    return;
+  }
 
   Serial.println("BLE advertising started");
   Serial.println("BLE server started");
@@ -278,6 +274,50 @@ void setup() {
 }
 
 void loop() {
+  // Process requests raised by BLE callbacks on the Arduino task.
+  if (disconnectCleanupRequested) {
+    disconnectCleanupRequested = false;
+    releaseCapturedImage();
+  }
+
+  if (captureRequested) {
+    captureRequested = false;
+    if (capturePhoto()) {
+      setCommandValue(commandCharacteristic, "CAPTURED", 8);
+      Serial.println("Capture completed successfully.");
+    } else {
+      setCommandValue(commandCharacteristic, "ERROR", 5);
+      Serial.println("Capture failed.");
+    }
+  }
+
+  if (transferStartRequested) {
+    transferStartRequested = false;
+    if (capturedImage == nullptr) {
+      Serial.println("START rejected: no captured image.");
+    } else {
+      transferOffset = 0;
+      lastAckOffset = 0;
+      waitingForAck = false;
+      transferActive = true;
+      lastTransferTime = millis();
+      Serial.println("Image transfer START received.");
+      Serial.printf("Sending %u bytes.\n", capturedImage->len);
+    }
+  }
+
+  if (ackReceived) {
+    ackReceived = false;
+    uint32_t ackOffset = receivedAckOffset;
+    if (transferActive && waitingForAck &&
+        ackOffset > lastAckOffset && ackOffset <= transferOffset) {
+      lastAckOffset = ackOffset;
+      waitingForAck = false;
+      lastAckTime = millis();
+      Serial.printf("ACK received: %u bytes\n", (unsigned int)ackOffset);
+    }
+  }
+
   if (!transferActive || capturedImage == nullptr) {
     delay(2);
     return;
@@ -308,9 +348,8 @@ void loop() {
   size_t chunkSize = remaining;
   if (chunkSize > CHUNK_SIZE) chunkSize = CHUNK_SIZE;
 
-  imageStreamCharacteristic->setValue(
+  BTStatus sent = imageStreamCharacteristic.notify(
     capturedImage->buf + transferOffset, chunkSize);
-  bool sent = imageStreamCharacteristic->notify();
 
   if (sent) {
     transferOffset += chunkSize;
@@ -324,7 +363,7 @@ void loop() {
                     (unsigned int)transferOffset);
     }
   } else {
-    Serial.println("BLE notification failed.");
+    Serial.printf("BLE notification failed: %s\n", sent.toString());
     releaseCapturedImage();
     return;
   }
