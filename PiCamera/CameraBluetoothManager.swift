@@ -25,7 +25,7 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     // Their configurable names share the "XIAO-" prefix.
     // Keep the Raspberry Pi's existing 40 KB window unchanged.
     private var ackWindow: Int {
-        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 160_000
+        selectedCameraName?.hasPrefix("XIAO-") == true ? 2_000 : 40_000
     }
 
     @Published var status = "Bluetooth is starting…"
@@ -54,6 +54,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
     private var waitingForCapture = false
     private var capturePolls = 0
     private var transferActive = false
+    private var transferStartedAt: TimeInterval = 0
+    private var notificationCount = 0
+    private var lastProgressUpdate: TimeInterval = 0
 
     override init() {
         super.init()
@@ -170,6 +173,9 @@ final class CameraBluetoothManager: NSObject, ObservableObject {
         receivedData.removeAll(keepingCapacity: true)
         receivedData.reserveCapacity(expectedImageSize)
         nextAck = ackWindow
+        notificationCount = 0
+        transferStartedAt = ProcessInfo.processInfo.systemUptime
+        lastProgressUpdate = transferStartedAt
         transferActive = true
         progress = 0
         progressLabel = "Receiving photograph…"
@@ -390,11 +396,23 @@ extension CameraBluetoothManager: CBPeripheralDelegate {
             startStreaming()
         } else if characteristic.uuid == imageStreamUUID && transferActive {
             receivedData.append(value)
+            notificationCount += 1
             let count = receivedData.count
-            progress = min(1, Double(count) / Double(max(expectedImageSize, 1)))
-            progressLabel = "\(Int(progress * 100))%  (\(count) / \(expectedImageSize) bytes)"
+            let now = ProcessInfo.processInfo.systemUptime
+
+            // Keep receiving every notification, but limit SwiftUI progress updates to 10 Hz.
+            if now - lastProgressUpdate >= 0.1 || count >= expectedImageSize {
+                progress = min(1, Double(count) / Double(max(expectedImageSize, 1)))
+                progressLabel = "\(Int(progress * 100))%  (\(count) / \(expectedImageSize) bytes)"
+                lastProgressUpdate = now
+            }
+
             acknowledgeIfNeeded()
             if count == expectedImageSize {
+                let elapsed = max(now - transferStartedAt, 0.001)
+                let rate = Double(count) / elapsed / 1024
+                print(String(format: "BLE receive complete: %d bytes, %d notifications in %.2fs (%.1f KB/s)",
+                             count, notificationCount, elapsed, rate))
                 completeTransfer()
             } else if count > expectedImageSize {
                 finishWithError("Received more data than expected.")
