@@ -3,9 +3,7 @@
 Native SwiftUI/Core Bluetooth iPhone app and Raspberry Pi BLE camera
 server.
 
-The system supports multiple Raspberry Pi 5 cameras. Each Pi advertises
-its own hostname over Bluetooth, and the iPhone app discovers compatible
-cameras and lets the user choose which one to connect to.
+The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense camera. Each Raspberry Pi advertises its hostname over Bluetooth; the XIAO advertises as `XIAO-CAMERA`. The iPhone app discovers compatible cameras and lets the user choose which one to connect to.
 
 ## Repository structure
 
@@ -22,6 +20,8 @@ cameras and lets the user choose which one to connect to.
 -   `RaspberryPi/requirements.txt` --- Python dependencies for the
     Raspberry Pi server.
 -   `RaspberryPi/INSTALL.md` --- Raspberry Pi installation instructions.
+-   `XIAO/XIAO_Camera_BLE.ino` --- tested XIAO ESP32S3 Sense BLE camera firmware.
+-   `XIAO/INSTALL.md` --- XIAO Arduino IDE setup and firmware configuration.
 -   `.github/workflows/` --- GitHub Actions workflow for building the
     iOS app.
 
@@ -38,10 +38,7 @@ For example, a Pi with hostname `POS-URINE-AN` advertises as
 `POS-URINE-AN`; another Pi with hostname `WORKSHOP-CAMERA` advertises as
 `WORKSHOP-CAMERA`.
 
-The iPhone app scans for the camera service UUID and displays discovered
-compatible devices by their Bluetooth names. It is not tied to a
-particular Pi hostname or Bluetooth device name. Select the required
-camera in the app before connecting.
+The iPhone app scans for the camera service UUID and displays discovered compatible devices by their Bluetooth names. Select the required camera in the app before connecting. The XIAO is identified by the fixed name `XIAO-CAMERA`.
 
 Give each Pi a unique hostname so that cameras can be distinguished in
 the selection list.
@@ -61,9 +58,7 @@ service and characteristics:
   Image stream        `7f510006-1b15-4f0e-9b7b-8c8f8f8f0001`
   Transfer control    `7f510007-1b15-4f0e-9b7b-8c8f8f8f0001`
 
-The app sends a capture command, waits for the capture status, obtains
-the JPEG size, receives the image stream and acknowledges transfer
-windows. It displays the received image and can save it to Photos.
+The app sends a capture command, waits for the capture status, obtains the JPEG size, receives the image stream and acknowledges transfer windows. It displays the received image and can save it to Photos. The acknowledgement window is camera-specific: 40,000 bytes for Raspberry Pi and 2,000 bytes for `XIAO-CAMERA`.
 
 ## Raspberry Pi installation
 
@@ -79,6 +74,10 @@ Bluetooth name from that hostname; no per-device name edit in
 The Raspberry Pi camera server runs locally. The iPhone communicates
 with it over Bluetooth Low Energy; Wi-Fi or an internet connection is
 not required for camera capture and image transfer.
+
+## XIAO camera setup
+
+Follow [`XIAO/INSTALL.md`](XIAO/INSTALL.md) to configure the Seeed Studio XIAO ESP32S3 Sense with OV3660 camera using Arduino IDE. The required PSRAM setting is **OPI PSRAM**.
 
 ## Building the iPhone app
 
