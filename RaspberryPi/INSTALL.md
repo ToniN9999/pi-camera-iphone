@@ -205,6 +205,56 @@ Run a manual watchdog check:
 sudo systemctl start pi-camera-watchdog.service
 ```
 
+## Raspberry Pi BLE transfer settings
+
+The current `RaspberryPi/ble_server.py` uses:
+
+- Notification payload: **244 bytes**.
+- Transfer acknowledgement window: **40,016 bytes** (164 × 244-byte notifications).
+- ATT MTU observed in the tested Pi/iPhone connection: **517**.
+- Link-layer data length observed in that connection: **251 bytes**.
+
+The 244-byte notification value plus the 3-byte ATT notification header and 4-byte L2CAP header totals 251 bytes, matching the negotiated link-layer data length in the tested setup. The iPhone app uses the matching 40,016-byte acknowledgement window for Raspberry Pi cameras. Do not change one side without changing the other. XIAO cameras use separate firmware settings and a 2,000-byte acknowledgement window.
+
+To deploy an updated server from the cloned repository, copy it into the active project directory and restart the service:
+
+```bash
+cp ~/pi-camera-iphone/RaspberryPi/ble_server.py ~/camera_project/ble_server.py
+python3 -m py_compile ~/camera_project/ble_server.py
+sudo systemctl restart pi-camera-ble.service
+sudo journalctl -u pi-camera-ble.service -n 30 --no-pager
+```
+
+The server startup log should report `Notification payload: 244` and `Notification window: 40016`.
+
+## Useful BLE transfer diagnostics
+
+View recent transfer logs:
+
+```bash
+sudo journalctl -u pi-camera-ble.service -n 100 --no-pager
+```
+
+Capture Bluetooth traffic while reproducing a transfer:
+
+```bash
+sudo btmon -w /tmp/pi-camera-bluetooth.snoop
+```
+
+Stop the capture with Ctrl+C, then decode it:
+
+```bash
+sudo btmon -r /tmp/pi-camera-bluetooth.snoop > /tmp/bt-analysis.txt
+```
+
+Count notifications and HCI ACL packets in the decoded capture:
+
+```bash
+grep -c "ATT: Handle Value Notification" /tmp/bt-analysis.txt
+grep -c "ACL Data TX" /tmp/bt-analysis.txt
+grep -c "ACL Data RX" /tmp/bt-analysis.txt
+```
+
 ## Important configuration notes
 
 The camera service currently expects:
