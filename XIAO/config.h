@@ -10,5 +10,10 @@
 #define ACK_TIMEOUT_MS 15000
 #define TRANSFER_TIMEOUT_MS 30000
 
-// Camera JPEG quality (lower number = higher quality)
+// Camera capture settings.
+// Examples include FRAMESIZE_QVGA (320x240), FRAMESIZE_VGA (640x480)
+// and FRAMESIZE_SVGA (800x600), subject to sensor and memory limits.
+#define CAMERA_FRAME_SIZE FRAMESIZE_QVGA
+
+// Camera JPEG quality (lower number = higher quality).
 #define CAMERA_JPEG_QUALITY 12
