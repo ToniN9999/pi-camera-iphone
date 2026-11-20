@@ -1,5 +1,4 @@
 
-import os
 import asyncio
 import time
 from datetime import datetime
@@ -14,6 +13,14 @@ from bluez_peripheral.gatt.service import Service
 from bluez_peripheral.gatt.characteristic import characteristic
 from bluez_peripheral.gatt.characteristic import CharacteristicFlags as CharFlags
 
+try:
+    import camera_config as config
+except ImportError as error:
+    raise RuntimeError(
+        "Missing camera_config.py. Copy camera_config.example.py to "
+        "/home/pi/camera_project/camera_config.py and set CAMERA_NAME."
+    ) from error
+
 
 SERVICE_UUID = "7f510001-1b15-4f0e-9b7b-8c8f8f8f0001"
 COMMAND_UUID = "7f510002-1b15-4f0e-9b7b-8c8f8f8f0001"
@@ -23,16 +30,32 @@ IMAGE_DATA_UUID = "7f510005-1b15-4f0e-9b7b-8c8f8f8f0001"
 IMAGE_STREAM_UUID = "7f510006-1b15-4f0e-9b7b-8c8f8f8f0001"
 TRANSFER_CONTROL_UUID = "7f510007-1b15-4f0e-9b7b-8c8f8f8f0001"
 
-DEVICE_NAME = os.uname().nodename
+CAMERA_NAME = config.CAMERA_NAME
+CAPTURE_WIDTH = config.CAPTURE_WIDTH
+CAPTURE_HEIGHT = config.CAPTURE_HEIGHT
+JPEG_QUALITY = config.JPEG_QUALITY
+CAPTURE_TIMEOUT_MS = config.CAPTURE_TIMEOUT_MS
 PROJECT_DIR = Path.home() / "camera_project"
 CAPTURE_DIR = PROJECT_DIR / "captures"
-JPEG_WIDTH = 2304
-JPEG_HEIGHT = 1296
-JPEG_QUALITY = 85
-CHUNK_SIZE = 180
-NOTIFY_PAYLOAD_SIZE = 244  # Fits one 251-byte LL PDU: 4-byte L2CAP + 3-byte ATT + 244-byte value
-TRANSFER_WINDOW_SIZE = 80032  # 328 notifications x 244 bytes; experimental larger ACK window
-TRANSFER_ACK_TIMEOUT = 15
+CHUNK_SIZE = config.CHUNK_SIZE
+NOTIFY_PAYLOAD_SIZE = config.NOTIFY_PAYLOAD_SIZE
+TRANSFER_WINDOW_SIZE = config.TRANSFER_WINDOW_SIZE
+TRANSFER_ACK_TIMEOUT = config.TRANSFER_ACK_TIMEOUT
+
+if not isinstance(CAMERA_NAME, str) or not CAMERA_NAME.strip():
+    raise ValueError("CAMERA_NAME in camera_config.py must be a non-empty string.")
+if CAMERA_NAME.upper().startswith("XIAO-"):
+    raise ValueError('Pi CAMERA_NAME must not start with "XIAO-".')
+if CAPTURE_WIDTH <= 0 or CAPTURE_HEIGHT <= 0:
+    raise ValueError("Capture width and height must be positive integers.")
+if not 1 <= JPEG_QUALITY <= 100:
+    raise ValueError("JPEG_QUALITY must be between 1 and 100.")
+if NOTIFY_PAYLOAD_SIZE <= 0 or TRANSFER_WINDOW_SIZE <= 0:
+    raise ValueError("BLE notification payload and transfer window must be positive.")
+if TRANSFER_WINDOW_SIZE % NOTIFY_PAYLOAD_SIZE:
+    raise ValueError(
+        "TRANSFER_WINDOW_SIZE must be a multiple of NOTIFY_PAYLOAD_SIZE."
+    )
 
 
 async def set_bluez_property(bus, adapter_path, name, value):
@@ -135,10 +158,10 @@ class CameraService(Service):
 
             process = await asyncio.create_subprocess_exec(
                 "rpicam-still",
-                "-n", "-t", "1000",
+                "-n", "-t", str(CAPTURE_TIMEOUT_MS),
                 "-q", str(JPEG_QUALITY),
-                "--width", str(JPEG_WIDTH),
-                "--height", str(JPEG_HEIGHT),
+                "--width", str(CAPTURE_WIDTH),
+                "--height", str(CAPTURE_HEIGHT),
                 "-o", str(filepath),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -323,14 +346,16 @@ async def main():
     await service.register(bus, adapter=adapter)
 
     advert = Advertisement(
-        DEVICE_NAME, [SERVICE_UUID], appearance=0, timeout=3600
+        CAMERA_NAME, [SERVICE_UUID], appearance=0, timeout=3600
     )
     await advert.register(bus, adapter=adapter)
 
     print("----------------------------------")
     print("Pi Camera BLE server is running")
-    print("JPEG resolution:", f"{JPEG_WIDTH}x{JPEG_HEIGHT}")
+    print("Camera name:", CAMERA_NAME)
+    print("JPEG resolution:", f"{CAPTURE_WIDTH}x{CAPTURE_HEIGHT}")
     print("JPEG quality:", JPEG_QUALITY)
+    print("Capture timeout:", CAPTURE_TIMEOUT_MS, "ms")
     print("Image chunk maximum:", CHUNK_SIZE)
     print("Notification payload:", NOTIFY_PAYLOAD_SIZE)
     print("Negotiated MTU observed in btmon: 517")
