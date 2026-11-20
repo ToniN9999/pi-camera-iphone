@@ -29,7 +29,7 @@ CAPTURE_DIR = PROJECT_DIR / "captures"
 JPEG_QUALITY = 85
 CHUNK_SIZE = 180
 NOTIFY_PAYLOAD_SIZE = 244  # Fits one 251-byte LL PDU: 4-byte L2CAP + 3-byte ATT + 244-byte value
-TRANSFER_WINDOW_SIZE = 40016  # 164 notifications x 244 bytes; keeps ACK boundaries aligned
+TRANSFER_WINDOW_SIZE = 80032  # 328 notifications x 244 bytes; experimental larger ACK window
 TRANSFER_ACK_TIMEOUT = 15
 
 
