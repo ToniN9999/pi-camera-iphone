@@ -15,10 +15,11 @@ This guide documents the tested XIAO ESP32S3 Sense + OV3660 BLE camera used with
 
    `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 
-3. Install **esp32 by Espressif Systems**, version **3.3.13**.
+3. Install **esp32 by Espressif Systems**, version **4.0.0**.
 4. Select board **XIAO_ESP32S3** and the correct serial port.
 5. In **Tools → PSRAM**, select **OPI PSRAM**. This setting is essential; without it the camera may fail to initialise or allocate frame buffers.
-6. Install **NimBLE-Arduino** by h2zero.
+6. No additional BLE library is required. The firmware uses the BLE API included with ESP32 Arduino core 4.0.0. Do not install or include NimBLE-Arduino for this sketch.
+
 7. Open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino`, compile and upload. Keep `config.h` in that same `XIAO_Camera_BLE` folder; Arduino requires the folder and `.ino` file to have the same name.
 
 ## Firmware configuration
@@ -33,12 +34,14 @@ For another unit, use a different name, such as `XIAO-CAMERA-02`. Keep the `XIAO
 
 The same file also contains the transfer and camera settings:
 
-- Camera frame size: configured by `CAMERA_FRAME_SIZE` (default `FRAMESIZE_QVGA`, 320 × 240)
-- JPEG capture quality: configured by `CAMERA_JPEG_QUALITY`
-- Notification chunk size: configured by `CHUNK_SIZE` (default 500 bytes)
-- Acknowledgement window: configured by `ACK_WINDOW` (default 2,000 bytes)
-- ACK timeout: configured by `ACK_TIMEOUT_MS` (default 15 seconds)
-- Transfer timeout: configured by `TRANSFER_TIMEOUT_MS` (default 30 seconds)
+- Camera frame size: configured by `CAMERA_FRAME_SIZE`; the current tested setting is `FRAMESIZE_UXGA` (1600 × 1200).
+- JPEG capture quality: configured by `CAMERA_JPEG_QUALITY`; the current tested setting is `12`.
+- Notification chunk size: configured by `CHUNK_SIZE` (currently 500 bytes).
+- Acknowledgement window: configured by `ACK_WINDOW` (currently 2,000 bytes).
+- ACK timeout: configured by `ACK_TIMEOUT_MS` (currently 15,000 ms).
+- Transfer timeout: configured by `TRANSFER_TIMEOUT_MS` (currently 30,000 ms).
+
+The OV3660 sensor supports up to QXGA (2048 × 1536). Larger frame sizes increase image detail and usually increase JPEG size and transfer time. The current UXGA setting has been tested; further JPEG quality and transfer tuning is deferred.
 
 ### After changing config.h
 
@@ -73,6 +76,9 @@ The app recognises the prefix automatically, so adding another uniquely named XI
 
 Set the Serial Monitor to **115200 baud**. On startup, the expected messages include:
 
+- `Starting XIAO Camera BLE Server`
+- `ESP32 Arduino core: 4.0.0`
+- `Using built-in ESP32 Core 4 BLE API`
 - `Camera initialised successfully!`
 - `Sensor PID: 0x3660`
 - `OV3660 ready.`
@@ -97,8 +103,12 @@ Check that the external antenna is connected correctly. The tested external ante
 
 ## Tested project settings
 
-- ESP32 Arduino core: 3.3.13
+- ESP32 Arduino core: 4.0.0
 - Board: XIAO_ESP32S3
 - PSRAM: OPI PSRAM
-- BLE library: NimBLE-Arduino by h2zero
+- BLE: ESP32 Arduino core built-in BLE API (no separate BLE library)
 - Camera sensor PID: 0x3660 (OV3660)
+- Frame size: UXGA (1600 × 1200)
+- JPEG quality: 12
+- Notification chunk: 500 bytes
+- Acknowledgement window: 2,000 bytes
