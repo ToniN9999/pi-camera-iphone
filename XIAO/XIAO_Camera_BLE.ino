@@ -67,7 +67,7 @@ bool initialiseCamera() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_QVGA;
+  config.frame_size = CAMERA_FRAME_SIZE;
   config.jpeg_quality = CAMERA_JPEG_QUALITY;
   config.fb_count = 1;
   config.fb_location = CAMERA_FB_IN_PSRAM;
