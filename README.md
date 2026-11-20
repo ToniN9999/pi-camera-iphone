@@ -13,8 +13,8 @@ The system supports Raspberry Pi 5 cameras and a Seeed Studio XIAO ESP32S3 Sense
 -   `RaspberryPi/pi-camera-ble.service` --- systemd service for starting
     the camera server.
 -   `RaspberryPi/pi-camera-watchdog.sh` --- checks that Bluetooth
-    advertising is active and restarts the BLE service if advertising is
-    missing.
+    advertising is active and restarts the BLE service if advertising
+    is missing.
 -   `RaspberryPi/pi-camera-watchdog.service` and
     `RaspberryPi/pi-camera-watchdog.timer` --- systemd units that run
     the watchdog once per minute.
@@ -37,18 +37,20 @@ installations. Keep the Pi name distinct from the reserved `XIAO-`
 prefix because the iPhone app uses that prefix to identify XIAO devices.
 
 Each XIAO gets a unique name in `XIAO/XIAO_Camera_BLE/config.h` (for example,
-`XIAO-CAMERA-01` and `XIAO-CAMERA-02`). The iPhone app scans for the
-camera service UUID and displays discovered compatible devices by their
-Bluetooth names. Select the required camera in the app before connecting.
+`XIAO-CAMERA-01` and `XIAO-CAMERA-02`). Keep the `XIAO-` prefix: the
+iPhone app uses it to select the XIAO acknowledgement window. The app scans
+for the camera service UUID and displays discovered compatible devices by
+their Bluetooth names. Select the required camera in the app before connecting.
 
 ### Applying configuration changes
 
 - **Raspberry Pi:** edit the local `/home/pi/camera_project/camera_config.py`,
   then run `sudo systemctl restart pi-camera-ble.service`. A full Pi reboot
   is not normally needed.
-- **XIAO:** edit `XIAO/XIAO_Camera_BLE/config.h`, then open `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino` in Arduino
-  IDE and compile/upload the firmware again. The XIAO must be reflashed;
-  restarting the Pi does not apply XIAO settings.
+- **XIAO:** edit `XIAO/XIAO_Camera_BLE/config.h`, then open
+  `XIAO/XIAO_Camera_BLE/XIAO_Camera_BLE.ino` in Arduino IDE and upload
+  the firmware again. The XIAO must be reflashed; restarting the Pi does
+  not apply XIAO settings.
 
 ## Bluetooth protocol
 
@@ -102,13 +104,31 @@ not required for camera capture and image transfer.
 
 ## XIAO camera setup
 
-Follow [`XIAO/INSTALL.md`](XIAO/INSTALL.md) to configure the Seeed Studio XIAO ESP32S3 Sense with OV3660 camera using Arduino IDE. The required PSRAM setting is **OPI PSRAM**.
+Follow [`XIAO/INSTALL.md`](XIAO/INSTALL.md) to configure the Seeed Studio
+XIAO ESP32S3 Sense with OV3660 camera using Arduino IDE. Use **ESP32
+Arduino core 4.0.0** and the core's built-in BLE API; NimBLE-Arduino is
+not required. The required PSRAM setting is **OPI PSRAM**.
+
+The currently tested XIAO configuration is:
+
+- Camera frame size: **UXGA (1600 × 1200)**.
+- JPEG quality: **12**.
+- BLE notification chunk: **500 bytes**.
+- Acknowledgement window: **2,000 bytes**.
+- ACK timeout: **15 seconds**.
+- Transfer timeout: **30 seconds**.
+
+Five consecutive UXGA captures and BLE transfers completed successfully
+during testing. The iPhone app was also tested switching between the
+Raspberry Pi and XIAO cameras and successfully capturing images from both.
+JPEG size and transfer time vary with the scene. Image compression and
+transfer tuning are intentionally left for later optimisation.
 
 ## Building the iPhone app
 
 GitHub Actions builds an unsigned iOS IPA on a macOS runner. Download
-the IPA artifact from a successful Actions run, then sign and install it
-on the iPhone using a suitable sideloading tool and Apple signing
+the IPA artifact from a successful Actions run, then sign and install
+it on the iPhone using a suitable sideloading tool and Apple signing
 credentials.
 
 With a free Apple Developer Personal Team, provisioning typically needs
