@@ -114,6 +114,23 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                GroupBox("Transfer diagnostics") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(camera.diagnostics)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button {
+                            camera.copyDiagnostics()
+                        } label: {
+                            Label("Copy diagnostics", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+
                 if let image = camera.image {
                     Image(uiImage: image)
                         .resizable()
